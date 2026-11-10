@@ -1,0 +1,28 @@
+{%- liquid
+  assign button_text = block.settings.button_text
+  assign button_style = block.settings.button_style
+-%}
+
+<div class="product__block custom-button-wrapper" {{ block_style }}>
+  <button 
+    type="button"
+    class="custom-product-btn btn {{ button_style }}"
+    onclick="openQRCustomizer()"
+    {% if animations_enabled %}
+      data-aos="hero"
+      data-aos-anchor="{{ animation_anchor }}"
+      data-aos-order="{{ animation_order }}"
+    {% endif %}>
+    {{ button_text }}
+  </button>
+</div>
+
+<style>
+  .custom-product-btn {
+    display: inline-block;
+    width: 100%;
+    text-align: center;
+    margin: 10px 0;
+    cursor: pointer;
+  }
+</style>

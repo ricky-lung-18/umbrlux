@@ -1,0 +1,955 @@
+{%- comment -%}
+  =====================================================================
+  SECTION: Carpe Diem Ordering Guide (Paged + Progress Bar)
+  =====================================================================
+  CHANGE LOG
+  v2 — Removed "Section X of 8" counter per Ray feedback 5/21
+       (the number conflicted with the letter labels and was confusing).
+       Each panel now shows only a type tag (Intro / Step A / About / Review).
+  v1 — Paged walkthrough with progress bar and A/B/C/D checkpoints.
+  =====================================================================
+{%- endcomment -%}
+
+<style>
+  .cd-guide-{{ section.id }} {
+    --ink:        #141413;
+    --ink-2:      #3d3d3a;
+    --muted:      #73726c;
+    --line:       rgba(31,30,29,0.08);
+    --line-2:     rgba(31,30,29,0.25);
+    --accent:     #1DCDB5;
+    --accent-2:   #08846f;
+    --bg:         #ffffff;
+    --card:       #ffffff;
+
+    font-family: var(--FONT-STACK-BODY);
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .cd-guide-{{ section.id }} * { box-sizing: border-box; }
+  .cd-guide-{{ section.id }} .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  /* ----- HERO ----- */
+  .cd-guide-{{ section.id }} .hero {
+    padding: 2rem 0 1.5rem;
+    text-align: center;
+  }
+  .cd-guide-{{ section.id }} .hero .eyebrow {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 500;
+    margin: 0 auto 12px;
+  }
+  .cd-guide-{{ section.id }} .hero h1 {
+    font-size: 36px;
+    font-weight: 500;
+    margin: 0 0 14px;
+    line-height: 1.15;
+    color: var(--ink);
+  }
+  .cd-guide-{{ section.id }} .hero h1 .italic {
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-weight: 400;
+  }
+  .cd-guide-{{ section.id }} .hero p {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--ink-2);
+    margin: 0 auto;
+    max-width: 540px;
+  }
+
+  /* ----- PROGRESS BAR ----- */
+  .cd-guide-{{ section.id }} .progress-bar {
+    margin: 2rem 0;
+    padding: 1.5rem 2rem;
+    background: var(--card);
+    border: 0.5px solid var(--line);
+    border-radius: 14px;
+    z-index: 50;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.03);
+    position: relative;
+    bottom: 0;
+    height: auto;
+  }
+  .cd-guide-{{ section.id }} .progress-label {
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+  }
+  .cd-guide-{{ section.id }} .progress-track {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    position: relative;
+    gap: 0;
+  }
+  .cd-guide-{{ section.id }} .progress-track::before {
+    content: "";
+    position: absolute;
+    top: 18px;
+    left: 12.5%;
+    right: 12.5%;
+    height: 2px;
+    background: var(--line);
+    z-index: 0;
+  }
+  .cd-guide-{{ section.id }} .progress-fill {
+    position: absolute;
+    top: 18px;
+    left: 12.5%;
+    height: 2px;
+    background: var(--accent);
+    z-index: 1;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+  .cd-guide-{{ section.id }} .progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    z-index: 2;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cd-guide-{{ section.id }} .progress-step:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+    border-radius: 8px;
+  }
+  .cd-guide-{{ section.id }} .progress-letter {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 2px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    transition: all 0.2s;
+    pointer-events: none;
+  }
+  .cd-guide-{{ section.id }} .progress-name {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 500;
+    text-align: center;
+    pointer-events: none;
+  }
+  .cd-guide-{{ section.id }} .progress-step:hover .progress-letter {
+    border-color: var(--ink-2);
+    color: var(--ink-2);
+  }
+  .cd-guide-{{ section.id }} .progress-step.is-active .progress-letter {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: #fff;
+    box-shadow: 0 0 0 4px rgba(29,205,181,0.2);
+  }
+  .cd-guide-{{ section.id }} .progress-step.is-done .progress-letter {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--ink);
+  }
+  .cd-guide-{{ section.id }} .progress-step.is-active .progress-name,
+  .cd-guide-{{ section.id }} .progress-step.is-done .progress-name {
+    color: var(--ink);
+  }
+
+  /* ----- SECTION PANELS ----- */
+  .cd-guide-{{ section.id }} .section-wrap {
+    background: var(--card);
+    border-radius: 16px;
+    border: 0.5px solid var(--line);
+    margin-bottom: 1.25rem;
+    display: none;
+    flex-direction: column;
+    min-height: 460px;
+  }
+  .cd-guide-{{ section.id }} .section-wrap.is-visible { display: flex; }
+
+  /* ----- SECTION TYPE TAG (replaces section counter) ----- */
+  .cd-guide-{{ section.id }} .section-tag-row {
+    padding: 1.25rem 2.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .cd-guide-{{ section.id }} .section-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .cd-guide-{{ section.id }} .section-tag.intro {
+    background: rgba(31,30,29,0.06);
+    color: var(--muted);
+  }
+  .cd-guide-{{ section.id }} .section-tag.step {
+    background: var(--ink);
+    color: #fff;
+  }
+  .cd-guide-{{ section.id }} .section-tag.about {
+    background: var(--accent);
+    color: var(--ink);
+  }
+  .cd-guide-{{ section.id }} .section-tag.review {
+    background: var(--accent-2);
+    color: #fff;
+  }
+
+  .cd-guide-{{ section.id }} .section-content {
+    padding: 2rem 2.5rem 0;
+    flex: 1;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1.75rem;
+  }
+
+  .cd-guide-{{ section.id }} .step-num {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 500;
+    flex-shrink: 0;
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+  }
+  .cd-guide-{{ section.id }} .step-num.is-intro {
+    background: transparent;
+    border: 1.5px solid var(--line-2);
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 1px;
+    font-family: var(--FONT-STACK-BODY);
+    font-style: normal;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .cd-guide-{{ section.id }} .step-num.is-about {
+    background: var(--accent);
+    color: var(--ink);
+    font-size: 22px;
+    font-family: var(--FONT-STACK-BODY);
+    font-style: normal;
+  }
+  .cd-guide-{{ section.id }} .step-num.is-review {
+    background: var(--accent-2);
+    color: #fff;
+    font-size: 22px;
+    font-family: var(--FONT-STACK-BODY);
+    font-style: normal;
+  }
+
+  .cd-guide-{{ section.id }} .step-body { max-width: 100%; }
+  .cd-guide-{{ section.id }} .step-body .label {
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: uppercase;
+    margin: 6px 0 8px;
+  }
+  .cd-guide-{{ section.id }} .step-body h2 {
+    font-size: 40px;
+    font-weight: 500;
+    margin: 0 0 12px;
+    line-height: 1.25;
+    color: var(--ink);
+  }
+  .cd-guide-{{ section.id }} .step-body p {
+    font-size: 18px;
+    line-height: 1.7;
+    color: var(--ink-2);
+    margin: 0 0 8px;
+  }
+  .cd-guide-{{ section.id }} .step-body p:last-child { margin-bottom: 0; }
+  .cd-guide-{{ section.id }} .step-body .pull {
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ink);
+    padding-left: 16px;
+    border-left: 2px solid var(--accent);
+    margin: 14px 0;
+  }
+  .cd-guide-{{ section.id }} .step-body .micro {
+    font-size: 16px;
+    color: var(--muted);
+    margin: 8px 0 0;
+  }
+  .cd-guide-{{ section.id }} .step-body strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .cd-guide-{{ section.id }} .vwala {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    color: var(--accent);
+    font-size: 16px;
+    font-weight: 500;
+    margin-top: 8px !important;
+  }
+  .cd-guide-{{ section.id }} .vwala::before {
+    content: "✦";
+    font-style: normal;
+  }
+
+  /* ----- VIDEO (intro panel) ----- */
+  .cd-guide-{{ section.id }} .video {
+    background: #1f1f1f;
+    aspect-ratio: 16/9;
+    border-radius: 14px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1.5rem;
+  }
+  .cd-guide-{{ section.id }} .video::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(29,205,181,0.12) 0%, rgba(31,31,31,0) 60%);
+    z-index: 1;
+  }
+  .cd-guide-{{ section.id }} .video video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+  }
+
+  /* ----- SECTION FOOTER (Prev / Next) ----- */
+  .cd-guide-{{ section.id }} .section-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2.5rem 2rem;
+    border-top: 0.5px solid var(--line);
+    margin-top: 2rem;
+    gap: 12px;
+  }
+  .cd-guide-{{ section.id }} .nav-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 22px;
+    background: var(--card);
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    border: 0.5px solid var(--line-2);
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .cd-guide-{{ section.id }} .nav-btn:hover:not(:disabled) {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+  }
+  .cd-guide-{{ section.id }} .nav-btn.is-primary {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+  }
+  .cd-guide-{{ section.id }} .nav-btn.is-primary:hover:not(:disabled) {
+    background: var(--accent);
+    color: var(--ink);
+    border-color: var(--accent);
+  }
+  .cd-guide-{{ section.id }} .nav-btn:disabled {
+    opacity: 0.25;
+    cursor: not-allowed;
+    display: none;
+  }
+  .cd-guide-{{ section.id }} .nav-btn:disabled:hover {
+    background: var(--card);
+    color: var(--ink);
+    border-color: var(--line-2);
+  }
+  .cd-guide-{{ section.id }} .nav-spacer { flex: 1; }
+
+  /* ----- FINAL CTA (lives inside section 8) ----- */
+  .cd-guide-{{ section.id }} .final {
+    background: var(--ink);
+    color: #fff;
+    padding: 3rem 2.5rem;
+    text-align: center;
+    border-radius: 16px;
+    margin-top: 2rem;
+  }
+  .cd-guide-{{ section.id }} .final .eyebrow {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 500;
+    margin: 0 auto 14px;
+  }
+  .cd-guide-{{ section.id }} .final h2 {
+    font-size: 30px;
+    font-weight: 500;
+    margin: 0 0 14px;
+    color: #fff;
+    text-transform: uppercase;
+  }
+  .cd-guide-{{ section.id }} .final p {
+    font-size: 16px;
+    color: rgba(255,255,255,0.7);
+    margin: 0 auto 1.75rem;
+    max-width: 460px;
+    line-height: 1.65;
+  }
+  .cd-guide-{{ section.id }} .final-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 30px;
+    background: var(--accent);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+  .cd-guide-{{ section.id }} .final-cta:hover { opacity: 0.9; }
+  .cd-guide-{{ section.id }} .support {
+    margin-top: 1.5rem;
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 1px;
+  }
+  .cd-guide-{{ section.id }} .support a {
+    color: #fff;
+    font-family: ui-monospace, monospace;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  /* ----- RESPONSIVE ----- */
+  @media (max-width: 768px) {
+    .cd-guide-{{ section.id }} .container { padding: 0 1rem; }
+    .cd-guide-{{ section.id }} .hero { padding: 1.5rem 0 1rem; }
+    .cd-guide-{{ section.id }} .hero h1 { font-size: 26px; }
+
+    .cd-guide-{{ section.id }} .progress-bar { padding: 1rem; }
+    .cd-guide-{{ section.id }} .progress-name { font-size: 9px; }
+    .cd-guide-{{ section.id }} .progress-letter { width: 32px; height: 32px; font-size: 12px; }
+    .cd-guide-{{ section.id }} .progress-track::before,
+    .cd-guide-{{ section.id }} .progress-fill { top: 15px; }
+
+    .cd-guide-{{ section.id }} .section-content {
+      padding: 1.5rem 1.25rem 0;
+      gap: 1rem;
+      grid-template-columns: 1fr;
+    }
+    .cd-guide-{{ section.id }} .step-num { width: 44px; height: 44px; font-size: 18px; }
+    .cd-guide-{{ section.id }} .step-body h2 { font-size: 30px; }
+    .cd-guide-{{ section.id }} .section-footer {
+      padding: 1.25rem;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .cd-guide-{{ section.id }} .nav-btn { width: 100%; justify-content: center; }
+    .cd-guide-{{ section.id }} .section-tag-row { padding: 0.75rem 1.25rem 0; }
+
+    .cd-guide-{{ section.id }} .final { padding: 2rem 1.5rem; border-radius: 10px; }
+    .cd-guide-{{ section.id }} .final h2 { font-size: 22px; }
+  }
+</style>
+
+<section class="cd-guide-{{ section.id }}">
+  <div class="wrapper">
+    {%- comment -%} ===== HERO ===== {%- endcomment -%}
+    <header class="hero">
+      {% if section.settings.hero_eyebrow != blank %}
+        <p class="eyebrow">{{ section.settings.hero_eyebrow }}</p>
+      {% endif %}
+      <h1>
+        {{ section.settings.hero_heading_first | default: 'Carpe Diem' }}
+        {% if section.settings.hero_heading_italic != blank %}
+          <span class="italic">{{ section.settings.hero_heading_italic }}</span>
+        {% endif %}
+      </h1>
+      {% if section.settings.hero_lede != blank %}
+        <p>{{ section.settings.hero_lede }}</p>
+      {% endif %}
+    </header>
+
+    {%- comment -%} ===== PROGRESS BAR ===== {%- endcomment -%}
+    <div class="progress-bar">
+      <div class="progress-label">{{ section.settings.progress_label | default: 'Your Progress' }}</div>
+      <div class="progress-track">
+        <div class="progress-fill" id="cd-progress-fill-{{ section.id }}"></div>
+        <button type="button" class="progress-step" data-letter="A" aria-label="Go to Step A">
+          <div class="progress-letter">A</div>
+          <div class="progress-name">{{ section.settings.progress_a_name | default: 'Generate QR' }}</div>
+        </button>
+        <button type="button" class="progress-step" data-letter="B" aria-label="Go to Step B">
+          <div class="progress-letter">B</div>
+          <div class="progress-name">{{ section.settings.progress_b_name | default: 'Pick Colour' }}</div>
+        </button>
+        <button type="button" class="progress-step" data-letter="C" aria-label="Go to Step C">
+          <div class="progress-letter">C</div>
+          <div class="progress-name">{{ section.settings.progress_c_name | default: 'Select Garment' }}</div>
+        </button>
+        <button type="button" class="progress-step" data-letter="D" aria-label="Go to Step D">
+          <div class="progress-letter">D</div>
+          <div class="progress-name">{{ section.settings.progress_d_name | default: 'Place Order' }}</div>
+        </button>
+      </div>
+    </div>
+
+    {%- comment -%} ===== SECTION 1 — Intro: What is a QR Crest? ===== {%- endcomment -%}
+    {% if section.settings.step1_heading != blank %}
+    <div class="section-wrap is-visible" data-section="1" data-type="intro">
+      <div class="section-tag-row"><span class="section-tag intro">Intro</span></div>
+      <div class="section-content">
+        <div class="step-num is-intro">Intro</div>
+        <div class="step-body">
+          {% if section.settings.step1_label != blank %}<p class="label">{{ section.settings.step1_label }}</p>{% endif %}
+          <h2>{{ section.settings.step1_heading }}</h2>
+          {{ section.settings.step1_body }}
+
+          {% if section.settings.video_url != blank or section.settings.show_video_placeholder %}
+            <div class="video" id="cd-video-{{ section.id }}">
+              {% if section.settings.video_url != blank %}
+                <video
+                  id="cd-video-el-{{ section.id }}"
+                  src="{{ section.settings.video_url }}"
+                  autoplay
+                  muted
+                  loop
+                  playsinline
+                  preload="auto"
+                  {% if section.settings.video_poster != blank %}poster="{{ section.settings.video_poster | image_url: width: 1600 }}"{% endif %}
+                ></video>
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+      <div class="section-footer">
+        <button type="button" class="nav-btn" disabled>← Prev</button>
+        <div class="nav-spacer"></div>
+        <button type="button" class="nav-btn is-primary" data-next>Next →</button>
+      </div>
+    </div>
+    {% endif %}
+
+    {%- comment -%} ===== SECTION 2 — Intro: How your crest works ===== {%- endcomment -%}
+    {% if section.settings.step2_heading != blank %}
+    <div class="section-wrap" data-section="2" data-type="intro">
+      <div class="section-tag-row"><span class="section-tag intro">Intro</span></div>
+      <div class="section-content">
+        <div class="step-num is-intro">Intro</div>
+        <div class="step-body">
+          {% if section.settings.step2_label != blank %}<p class="label">{{ section.settings.step2_label }}</p>{% endif %}
+          <h2>{{ section.settings.step2_heading }}</h2>
+          {{ section.settings.step2_body }}
+        </div>
+      </div>
+      <div class="section-footer">
+        <button type="button" class="nav-btn" data-prev>← Prev</button>
+        <div class="nav-spacer"></div>
+        <button type="button" class="nav-btn is-primary" data-next>Next · Step A →</button>
+      </div>
+    </div>
+    {% endif %}
+
+    {%- comment -%} ===== SECTION 3 — Step A · Generate QR ===== {%- endcomment -%}
+    {% if section.settings.step3_heading != blank %}
+    <div class="section-wrap" data-section="3" data-type="step" data-letter="A">
+      <div class="section-tag-row"><span class="section-tag step">Step A</span></div>
+      <div class="section-content">
+        <div class="step-num">A</div>
+        <div class="step-body">
+          {% if section.settings.step3_label != blank %}<p class="label">{{ section.settings.step3_label }}</p>{% endif %}
+          <h2>{{ section.settings.step3_heading }}</h2>
+          {{ section.settings.step3_body }}
+        </div>
+      </div>
+      <div class="section-footer">
+        <button type="button" class="nav-btn" data-prev>← Prev</button>
+        <div class="nav-spacer"></div>
+        <button type="button" class="nav-btn is-primary" data-next>Next · Step B →</button>
+      </div>
+    </div>
+    {% endif %}
+
+    {%- comment -%} ===== SECTION 4 — Step B · Colour ===== {%- endcomment -%}
+    {% if section.settings.step4_heading != blank %}
+    <div class="section-wrap" data-section="4" data-type="step" data-letter="B">
+      <div class="section-tag-row"><span class="section-tag step">Step B</span></div>
+      <div class="section-content">
+        <div class="step-num">B</div>
+        <div class="step-body">
+          {% if section.settings.step4_label != blank %}<p class="label">{{ section.settings.step4_label }}</p>{% endif %}
+          <h2>{{ section.settings.step4_heading }}</h2>
+          {{ section.settings.step4_body }}
+        </div>
+      </div>
+      <div class="section-footer">
+        <button type="button" class="nav-btn" data-prev>← Prev · Step A</button>
+        <div class="nav-spacer"></div>
+        <button type="button" class="nav-btn is-primary" data-next>Next · Step C →</button>
+      </div>
+    </div>
+    {% endif %}
+
+    {%- comment -%} ===== SECTION 5 — Step C · Garment ===== {%- endcomment -%}
+    {% if section.settings.step5_heading != blank %}
+    <div class="section-wrap" data-section="5" data-type="step" data-letter="C">
+      <div class="section-tag-row"><span class="section-tag step">Step C</span></div>
+      <div class="section-content">
+        <div class="step-num">C</div>
+        <div class="step-body">
+          {% if section.settings.step5_label != blank %}<p class="label">{{ section.settings.step5_label }}</p>{% endif %}
+          <h2>{{ section.settings.step5_heading }}</h2>
+          {{ section.settings.step5_body }}
+        </div>
+      </div>
+      <div class="section-footer">
+        <button type="button" class="nav-btn" data-prev>← Prev · Step B</button>
+        <div class="nav-spacer"></div>
+        <button type="button" class="nav-btn is-primary" data-next>Next · About →</button>
+      </div>
+    </div>
+    {% endif %}
+
+    {%- comment -%} ===== SECTION 6 — About: The Umbrlux Crest ===== {%- endcomment -%}
+    {% if section.settings.step6_heading != blank %}
+    <div class="section-wrap" data-section="6" data-type="about">
+      <div class="section-tag-row"><span class="section-tag about">About</span></div>
+      <div class="section-content">
+        <div class="step-num is-about">✦</div>
+        <div class="step-body">
+          {% if section.settings.step6_label != blank %}<p class="label">{{ section.settings.step6_label }}</p>{% endif %}
+          <h2>{{ section.settings.step6_heading }}</h2>
+          {{ section.settings.step6_body }}
+        </div>
+      </div>
+      <div class="section-footer">
+        <button type="button" class="nav-btn" data-prev>← Prev · Step C</button>
+        <div class="nav-spacer"></div>
+        <button type="button" class="nav-btn is-primary" data-next>Next · Step D →</button>
+      </div>
+    </div>
+    {% endif %}
+
+    {%- comment -%} ===== SECTION 7 — Step D · Order ===== {%- endcomment -%}
+    {% if section.settings.step7_heading != blank %}
+    <div class="section-wrap" data-section="7" data-type="step" data-letter="D">
+      <div class="section-tag-row"><span class="section-tag step">Step D</span></div>
+      <div class="section-content">
+        <div class="step-num">D</div>
+        <div class="step-body">
+          {% if section.settings.step7_label != blank %}<p class="label">{{ section.settings.step7_label }}</p>{% endif %}
+          <h2>{{ section.settings.step7_heading }}</h2>
+          {{ section.settings.step7_body }}
+        </div>
+      </div>
+      <div class="section-footer">
+        <button type="button" class="nav-btn" data-prev>← Prev · About</button>
+        <div class="nav-spacer"></div>
+        <button type="button" class="nav-btn is-primary" data-next>Next · Review →</button>
+      </div>
+    </div>
+    {% endif %}
+
+    {%- comment -%} ===== SECTION 8 — Review + Final CTA ===== {%- endcomment -%}
+    {% if section.settings.step8_heading != blank %}
+    <div class="section-wrap" data-section="8" data-type="review">
+      <div class="section-tag-row"><span class="section-tag review">Review</span></div>
+      <div class="section-content">
+        <div class="step-num is-review">✓</div>
+        <div class="step-body">
+          {% if section.settings.step8_label != blank %}<p class="label">{{ section.settings.step8_label }}</p>{% endif %}
+          <h2>{{ section.settings.step8_heading }}</h2>
+          {{ section.settings.step8_body }}
+
+          <div class="final">
+            {% if section.settings.final_eyebrow != blank %}
+              <p class="eyebrow">{{ section.settings.final_eyebrow }}</p>
+            {% endif %}
+            {% if section.settings.final_heading != blank %}
+              <h2>{{ section.settings.final_heading }}</h2>
+            {% endif %}
+            {% if section.settings.final_text != blank %}
+              <p>{{ section.settings.final_text }}</p>
+            {% endif %}
+            {% if section.settings.final_cta_label != blank %}
+              <a href="{{ section.settings.final_cta_url | default: '/products' }}" class="final-cta">
+                {{ section.settings.final_cta_label }} →
+              </a>
+            {% endif %}
+            {% if section.settings.support_phone != blank %}
+              <div class="support">
+                {{ section.settings.support_label | default: 'Need help?' }}
+                Call <a href="tel:{{ section.settings.support_phone | replace: '-', '' | replace: ' ', '' }}">{{ section.settings.support_phone }}</a>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="section-footer">
+        <button type="button" class="nav-btn" data-prev>← Prev · Step D</button>
+        <div class="nav-spacer"></div>
+        <button type="button" class="nav-btn is-primary" disabled>Complete ✓</button>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</section>
+
+<script>
+  (function () {
+    var root = document.querySelector('.cd-guide-{{ section.id }}');
+    if (!root) return;
+
+    var TOTAL_SECTIONS = 8;
+    var current = 1;
+
+    var SECTION_TO_LETTER = {
+      1: null, 2: null, 3: 'A', 4: 'B', 5: 'C', 6: null, 7: 'D', 8: null
+    };
+    var LETTER_TO_SECTION = { A: 3, B: 4, C: 5, D: 7 };
+
+    function lettersDoneAfter(sectionIdx) {
+      var done = [];
+      for (var i = 1; i <= sectionIdx; i++) {
+        var letter = SECTION_TO_LETTER[i];
+        if (letter) done.push(letter);
+      }
+      return done;
+    }
+
+    function showSection(idx) {
+      if (idx < 1 || idx > TOTAL_SECTIONS) return;
+
+      var target = root.querySelector('.section-wrap[data-section="' + idx + '"]');
+      if (!target) {
+        var dir = idx > current ? 1 : -1;
+        var next = idx + dir;
+        while (next >= 1 && next <= TOTAL_SECTIONS) {
+          if (root.querySelector('.section-wrap[data-section="' + next + '"]')) {
+            idx = next;
+            target = root.querySelector('.section-wrap[data-section="' + idx + '"]');
+            break;
+          }
+          next += dir;
+        }
+        if (!target) return;
+      }
+
+      current = idx;
+
+      root.querySelectorAll('.section-wrap').forEach(function (el) {
+        var i = parseInt(el.dataset.section, 10);
+        el.classList.toggle('is-visible', i === idx);
+      });
+
+      updateProgressBar();
+      scrollToTop();
+    }
+
+    function updateProgressBar() {
+      var done = lettersDoneAfter(current);
+      var currentLetter = SECTION_TO_LETTER[current];
+
+      root.querySelectorAll('.progress-step').forEach(function (btn) {
+        var letter = btn.dataset.letter;
+        var isDone = done.indexOf(letter) !== -1 && letter !== currentLetter;
+        var isActive = letter === currentLetter;
+        btn.classList.toggle('is-done', isDone);
+        btn.classList.toggle('is-active', isActive);
+      });
+
+      var allDone = lettersDoneAfter(current);
+      var maxReached = -1;
+      ['A','B','C','D'].forEach(function (l, i) {
+        if (allDone.indexOf(l) !== -1 || l === currentLetter) {
+          maxReached = Math.max(maxReached, i);
+        }
+      });
+
+      var fillPct;
+      if (maxReached === -1)      fillPct = 0;
+      else if (maxReached === 0)  fillPct = 0;
+      else                        fillPct = (maxReached / 3) * 75;
+
+      var fillEl = document.getElementById('cd-progress-fill-{{ section.id }}');
+      if (fillEl) fillEl.style.width = fillPct + '%';
+    }
+
+    function scrollToTop() {
+      var bar = root.querySelector('.progress-bar');
+      if (!bar) return;
+      var top = bar.getBoundingClientRect().top + window.scrollY - 12;
+      window.scrollTo({ top: Math.max(0, top - 80), behavior: 'smooth' });
+    }
+
+    root.addEventListener('click', function (e) {
+      var stepBtn = e.target.closest('.progress-step');
+      if (stepBtn && root.contains(stepBtn)) {
+        e.preventDefault();
+        e.stopPropagation();
+        var letter = stepBtn.dataset.letter;
+        var targetSection = LETTER_TO_SECTION[letter];
+        if (targetSection) showSection(targetSection);
+        return;
+      }
+
+      if (e.target.closest('[data-next]')) {
+        e.preventDefault();
+        showSection(current + 1);
+        return;
+      }
+
+      if (e.target.closest('[data-prev]')) {
+        e.preventDefault();
+        showSection(current - 1);
+        return;
+      }
+    });
+
+    root.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      var stepBtn = e.target.closest('.progress-step');
+      if (!stepBtn) return;
+      e.preventDefault();
+      var letter = stepBtn.dataset.letter;
+      var targetSection = LETTER_TO_SECTION[letter];
+      if (targetSection) showSection(targetSection);
+    });
+
+    updateProgressBar();
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Carpe Diem Guide",
+  "settings": [
+    { "type": "header", "content": "Hero" },
+    { "type": "text",     "id": "hero_eyebrow",        "label": "Eyebrow", "default": "Welcome to" },
+    { "type": "text",     "id": "hero_heading_first",  "label": "Heading (first half)", "default": "Carpe Diem" },
+    { "type": "text",     "id": "hero_heading_italic", "label": "Heading (italic word)", "default": "Ordering" },
+    { "type": "textarea", "id": "hero_lede",           "label": "Lead paragraph", "default": "A quick and considered walkthrough — showing you just how easy it is to order your custom QR code garment from UMBRLUX. Let's get started." },
+
+    { "type": "header", "content": "Progress Bar" },
+    { "type": "text", "id": "progress_label",   "label": "Progress bar label", "default": "Your Progress" },
+    { "type": "text", "id": "progress_a_name",  "label": "Checkpoint A name",  "default": "Generate QR" },
+    { "type": "text", "id": "progress_b_name",  "label": "Checkpoint B name",  "default": "Pick Colour" },
+    { "type": "text", "id": "progress_c_name",  "label": "Checkpoint C name",  "default": "Select Garment" },
+    { "type": "text", "id": "progress_d_name",  "label": "Checkpoint D name",  "default": "Place Order" },
+
+    { "type": "header", "content": "Video (shown in Section 1)" },
+    { "type": "text",         "id": "video_url",              "label": "Video URL (MP4 from Shopify Files)", "info": "Upload to Shopify Files first, then paste the CDN URL." },
+    { "type": "image_picker", "id": "video_poster",           "label": "Video poster image (still shown before play)" },
+    { "type": "checkbox",     "id": "show_video_placeholder", "label": "Show placeholder when no video URL", "default": true },
+
+    { "type": "header", "content": "Section 1 — Intro · What is a QR Crest?" },
+    { "type": "text", "id": "step1_label",   "label": "Label",   "default": "Begin Here" },
+    { "type": "text", "id": "step1_heading", "label": "Heading", "default": "What is a QR Crest?" },
+    { "type": "html", "id": "step1_body",    "label": "Body",    "default": "<p>A QR code in our minimalistic design palette creates a <strong>CREST</strong>. A crest begins as a QR code — but becomes something more.</p><p class=\"pull\">A crest is both functional and expressive. It scans instantly, yet it also signals identity, intention, and authorship.</p><p>As a crest, it becomes a mark — connecting your audience to what you choose, in a way that is deliberate and distinctly yours.</p>" },
+
+    { "type": "header", "content": "Section 2 — Intro · How your crest works" },
+    { "type": "text", "id": "step2_label",   "label": "Label",   "default": "Understanding the QR" },
+    { "type": "text", "id": "step2_heading", "label": "Heading", "default": "How your crest works." },
+    { "type": "html", "id": "step2_body",    "label": "Body",    "default": "<p>Your crest QR is a scannable square that connects the physical world to digital information. When someone scans it with their phone camera, it instantly opens a link — no typing required.</p><p>That link can take them to a website, a video, contact information, social media — anything you choose.</p><p class=\"micro\">In short: wearing your QR turns your physical presence into an interactive access point.</p>" },
+
+    { "type": "header", "content": "Section 3 — Step A · Generate your QR" },
+    { "type": "text", "id": "step3_label",   "label": "Label",   "default": "Step A · Generate" },
+    { "type": "text", "id": "step3_heading", "label": "Heading", "default": "Generate your QR code." },
+    { "type": "html", "id": "step3_body",    "label": "Body",    "default": "<p>Decide where your crest will take your new audience, then head to the <strong>QR generator</strong>. Drop in the URL — portfolio, brand site, social, anywhere.</p><p class=\"micro\">Already have a QR code? Use the <strong>\"Already have a QR\"</strong> tab and upload yours instead.</p>" },
+
+    { "type": "header", "content": "Section 4 — Step B · Choose your colour" },
+    { "type": "text", "id": "step4_label",   "label": "Label",   "default": "Step B · Colour" },
+    { "type": "text", "id": "step4_heading", "label": "Heading", "default": "Choose your colour." },
+    { "type": "html", "id": "step4_body",    "label": "Body",    "default": "<p>Complete your crest with one of our <strong>Umbrlux Colour</strong> options. This becomes your signature mark.</p><p class=\"micro\">Don't worry — you can alternate colours later if you change your mind.</p><p class=\"vwala\">Voilà — you made your crest.</p>" },
+
+    { "type": "header", "content": "Section 5 — Step C · Select your garment" },
+    { "type": "text", "id": "step5_label",   "label": "Label",   "default": "Step C · Garment" },
+    { "type": "text", "id": "step5_heading", "label": "Heading", "default": "Select your garment." },
+    { "type": "html", "id": "step5_body",    "label": "Body",    "default": "<p>In the <strong>UMBRLUX Boutique</strong>, pick the garment that carries your crest. You can always revisit any step out of order to make a change.</p><p>Use our <strong>size chart</strong> to choose carefully — getting the right size matters.</p><p class=\"micro\">If your garment supports it, you can choose front, back, or both for placement. Want a different colour for this piece? Hit <strong>Edit Crest</strong>.</p>" },
+
+    { "type": "header", "content": "Section 6 — About · The Umbrlux Crest" },
+    { "type": "text", "id": "step6_label",   "label": "Label",   "default": "The Umbrlux Crest" },
+    { "type": "text", "id": "step6_heading", "label": "Heading", "default": "An integral part of every piece." },
+    { "type": "html", "id": "step6_body",    "label": "Body",    "default": "<p>The UMBRLUX logo is built into every crest. Our brand is aligned with achievement — the exceptional, the refined, and the positive — while remaining grounded in humanity and inclusion.</p><p class=\"pull\">Our mission is guided by Carpe Diem — Latin for \"seize the day.\" It shapes everything we make: intention, presence, and forward momentum.</p><p>Each crest is presented in default sizes and placements that are both aesthetically and strategically selected — designed to attract attention with restraint.</p>" },
+
+    { "type": "header", "content": "Section 7 — Step D · Place your order" },
+    { "type": "text", "id": "step7_label",   "label": "Label",   "default": "Step D · Order" },
+    { "type": "text", "id": "step7_heading", "label": "Heading", "default": "Place your order." },
+    { "type": "html", "id": "step7_body",    "label": "Body",    "default": "<p><strong>Click Place Order</strong> — your selection is added to the cart. <strong>Click Checkout</strong>, fill in your details, and <strong>click Place Order</strong> again to complete your purchase.</p>" },
+
+    { "type": "header", "content": "Section 8 — Review · Pre-production" },
+    { "type": "text", "id": "step8_label",   "label": "Label",   "default": "Before Production" },
+    { "type": "text", "id": "step8_heading", "label": "Heading", "default": "Pre-production review." },
+    { "type": "html", "id": "step8_body",    "label": "Body",    "default": "<p>Before production begins, our pre-production team reviews your selections and provides a <strong>proof for final verification</strong>.</p><p class=\"vwala\">Voilà — your order is placed.</p>" },
+
+    { "type": "header", "content": "Final CTA (appears in Section 8)" },
+    { "type": "text",     "id": "final_eyebrow",   "label": "Eyebrow",         "default": "Ready When You Are" },
+    { "type": "text",     "id": "final_heading",   "label": "Heading",         "default": "Seize the day." },
+    { "type": "textarea", "id": "final_text",      "label": "Supporting text", "default": "Start building your custom crest. The walkthrough is here when you need to revisit it." },
+    { "type": "text",     "id": "final_cta_label", "label": "CTA button label","default": "Start Building" },
+    { "type": "url",      "id": "final_cta_url",   "label": "CTA button link", "info": "Link to the QR builder product" },
+
+    { "type": "header", "content": "Support" },
+    { "type": "text", "id": "support_label", "label": "Support label", "default": "Need help?" },
+    { "type": "text", "id": "support_phone", "label": "Support phone number", "default": "1-800-555-5555", "info": "Auto-becomes a clickable tel: link on mobile" }
+  ],
+  "presets": [ { "name": "Carpe Diem Guide" } ]
+}
+{% endschema %}

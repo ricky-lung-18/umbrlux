@@ -1,0 +1,67 @@
+.collection__category-nav {
+    margin: 0 0 8px 0;
+    padding: 0 0 20px 0;
+  }
+
+  .collection__category-nav__heading {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text, #141413);
+    margin: 0 0 16px 0;
+  }
+
+  .collection__category-nav__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .collection__category-nav__item {
+    margin: 0 0 12px 0;
+  }
+  .collection__category-nav__item:last-child { margin-bottom: 0; }
+
+  .collection__category-nav__link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    font-size: 14px;
+    color: var(--text, #141413);
+    line-height: 1.2;
+  }
+
+  /* the marker — a small circle that fills when active, echoing the
+     checkbox look from the native filters without being a checkbox */
+  .collection__category-nav__marker {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--border-color, rgba(31,30,29,0.35));
+    border-radius: 50%;
+    position: relative;
+    transition: border-color 0.15s ease;
+  }
+
+  .collection__category-nav__link:hover .collection__category-nav__marker {
+    border-color: var(--text, #141413);
+  }
+
+  .collection__category-nav__link.is-active .collection__category-nav__marker {
+    border-color: var(--text, #141413);
+  }
+  .collection__category-nav__link.is-active .collection__category-nav__marker::after {
+    content: "";
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text, #141413);
+    transform: translate(-50%, -50%);
+  }
+
+  .collection__category-nav__link.is-active {
+    font-weight: 600;
+  }

@@ -1,0 +1,343 @@
+<style>
+  .cd-teaser-{{ section.id }} {
+    --ink:        #141413;
+    --ink-2:      #3d3d3a;
+    --muted:      #73726c;
+    --line:       rgba(31,30,29,0.08);
+    --line-2:     rgba(31,30,29,0.25);
+    --accent:     #1DCDB5;
+    --bg:         #ffffff;
+    --card:       #ffffff;
+
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    padding: 3rem 0;
+  }
+  .cd-teaser-{{ section.id }} * { box-sizing: border-box;}
+  .cd-teaser-{{ section.id }} .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+  .cd-teaser-{{ section.id }} .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: center;
+  }
+
+  /* Text column */
+  .cd-teaser-{{ section.id }} .eyebrow {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 500;
+    margin: 0 0 14px;
+  }
+  .cd-teaser-{{ section.id }} h2 {
+    font-size: 30px;
+    font-weight: 500;
+    line-height: 1.15;
+    margin: 0 0 16px;
+    max-width: 440px;
+    color: var(--ink);
+  }
+  .cd-teaser-{{ section.id }} .lede {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--ink-2);
+    margin: 0 0 1rem;
+    max-width: 440px;
+  }
+  .cd-teaser-{{ section.id }} .small {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--muted);
+    margin: 0 0 1.5rem;
+    max-width: 440px;
+    font-style: italic;
+  }
+
+  /* CTAs */
+  .cd-teaser-{{ section.id }} .cta-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .cd-teaser-{{ section.id }} .cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 26px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+  .cd-teaser-{{ section.id }} .cta:hover { opacity: 0.9; }
+  .cd-teaser-{{ section.id }} .cta-secondary {
+    background: transparent;
+    color: var(--ink);
+    border: 0.5px solid var(--line-2);
+  }
+  .cd-teaser-{{ section.id }} .cta-secondary:hover {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+  }
+
+  /* Image column */
+  .cd-teaser-{{ section.id }} .image-wrap {
+    aspect-ratio: 1/1;
+    border-radius: 14px;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--accent) 0%, #08846f 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cd-teaser-{{ section.id }} .image-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .cd-teaser-{{ section.id }} .image-tag {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    z-index: 3;
+    font-size: 10px;
+    color: #fff;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+
+  /* Feature chips */
+  .cd-teaser-{{ section.id }} .features {
+    display: flex;
+    gap: 24px;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+  }
+  .cd-teaser-{{ section.id }} .feature {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .cd-teaser-{{ section.id }} .feature::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .cd-teaser-{{ section.id }} { padding: 2rem 0; }
+    .cd-teaser-{{ section.id }} .container { padding: 0 1.25rem; }
+    .cd-teaser-{{ section.id }} .grid {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    .cd-teaser-{{ section.id }} h2 { font-size: 24px; }
+    .cd-teaser-{{ section.id }} .image-wrap { aspect-ratio: 4/3; }
+    .cd-teaser-{{ section.id }} .features { gap: 14px; }
+    .cd-teaser-{{ section.id }} .cta { padding: 12px 20px; }
+  }
+</style>
+
+<section class="cd-teaser-{{ section.id }}">
+  <div class="container">
+    <div class="grid">
+
+      {%- comment -%} ===== TEXT COLUMN ===== {%- endcomment -%}
+      <div class="text-col">
+        {% if section.settings.eyebrow != blank %}
+          <p class="eyebrow">{{ section.settings.eyebrow }}</p>
+        {% endif %}
+
+        {% if section.settings.heading != blank %}
+          <h2>{{ section.settings.heading }}</h2>
+        {% endif %}
+
+        {% if section.settings.lede != blank %}
+          <p class="lede">{{ section.settings.lede }}</p>
+        {% endif %}
+
+        {% if section.settings.small_text != blank %}
+          <p class="small">{{ section.settings.small_text }}</p>
+        {% endif %}
+
+        <div class="cta-row">
+          {% if section.settings.cta_primary_label != blank %}
+            <a href="{{ section.settings.cta_primary_url | default: '/pages/carpe-diem-ordering' }}" class="cta">
+              {{ section.settings.cta_primary_label }} →
+            </a>
+          {% endif %}
+
+          {% if section.settings.cta_secondary_label != blank %}
+            <a href="{{ section.settings.cta_secondary_url | default: '/products' }}" class="cta cta-secondary">
+              {{ section.settings.cta_secondary_label }}
+            </a>
+          {% endif %}
+        </div>
+
+        {%- comment -%} Feature chips — only render if at least one is filled {%- endcomment -%}
+        {% if section.settings.feature_1 != blank or section.settings.feature_2 != blank or section.settings.feature_3 != blank or section.settings.feature_4 != blank %}
+          <div class="features">
+            {% if section.settings.feature_1 != blank %}<span class="feature">{{ section.settings.feature_1 }}</span>{% endif %}
+            {% if section.settings.feature_2 != blank %}<span class="feature">{{ section.settings.feature_2 }}</span>{% endif %}
+            {% if section.settings.feature_3 != blank %}<span class="feature">{{ section.settings.feature_3 }}</span>{% endif %}
+            {% if section.settings.feature_4 != blank %}<span class="feature">{{ section.settings.feature_4 }}</span>{% endif %}
+          </div>
+        {% endif %}
+      </div>
+
+      {%- comment -%} ===== IMAGE COLUMN ===== {%- endcomment -%}
+      <div class="image-wrap">
+        {% if section.settings.image != blank %}
+          <img src="{{ section.settings.image | image_url: width: 1200 }}"
+               alt="{{ section.settings.image.alt | default: section.settings.heading }}"
+               loading="lazy"
+               width="600" height="600">
+        {% endif %}
+        {% if section.settings.image_tag != blank %}
+          <span class="image-tag">{{ section.settings.image_tag }}</span>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "How it works",
+  "tag": "section",
+  "class": "section-how-it-works",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Text Content"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow (small label above heading)",
+      "default": "Carpe Diem Ordering"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Functional. Intentional. Personal."
+    },
+    {
+      "type": "textarea",
+      "id": "lede",
+      "label": "Lead paragraph",
+      "default": "A crest begins as a QR code — but becomes a mark. Something deliberate, designed, and distinctly yours."
+    },
+    {
+      "type": "textarea",
+      "id": "small_text",
+      "label": "Subtext (italic, smaller)",
+      "default": "Quick, easy, and considered from start to finish. Watch our walkthrough and order with confidence."
+    },
+    {
+      "type": "header",
+      "content": "Call to Action Buttons"
+    },
+    {
+      "type": "text",
+      "id": "cta_primary_label",
+      "label": "Primary button label",
+      "default": "See How It Works"
+    },
+    {
+      "type": "url",
+      "id": "cta_primary_url",
+      "label": "Primary button link",
+      "info": "Default goes to /pages/carpe-diem-ordering"
+    },
+    {
+      "type": "text",
+      "id": "cta_secondary_label",
+      "label": "Secondary button label",
+      "default": "Start Building"
+    },
+    {
+      "type": "url",
+      "id": "cta_secondary_url",
+      "label": "Secondary button link",
+      "info": "Link to the QR builder product"
+    },
+    {
+      "type": "header",
+      "content": "Image"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Featured image",
+      "info": "Square (1:1) image works best. Falls back to teal gradient if empty."
+    },
+    {
+      "type": "text",
+      "id": "image_tag",
+      "label": "Image overlay tag (small caption)",
+      "default": "Your Crest, Your Mark"
+    },
+    {
+      "type": "header",
+      "content": "Feature Chips (optional)"
+    },
+    {
+      "type": "text",
+      "id": "feature_1",
+      "label": "Feature 1",
+      "default": "QR-coded"
+    },
+    {
+      "type": "text",
+      "id": "feature_2",
+      "label": "Feature 2",
+      "default": "Custom Color"
+    },
+    {
+      "type": "text",
+      "id": "feature_3",
+      "label": "Feature 3",
+      "default": "Premium Cotton"
+    },
+    {
+      "type": "text",
+      "id": "feature_4",
+      "label": "Feature 4",
+      "default": "Made-to-Order"
+    }
+  ],
+  "presets": [
+    {
+      "name": "How it works"
+    }
+  ]
+}
+{% endschema %}

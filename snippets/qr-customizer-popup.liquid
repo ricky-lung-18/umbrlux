@@ -1,0 +1,116 @@
+{%- comment -%}
+  QR Code Customizer Popup
+  Usage: {% render 'qr-customizer-popup', product: product %}
+{%- endcomment -%}
+
+<div id="qr-customizer-modal" class="qr-modal" style="display: none;">
+  <div class="qr-modal-content">
+    <span class="qr-modal-close">&times;</span>
+    <div class="qr-modal-body">
+      <!-- Your HTML content here, but with Shopify liquid variables -->
+      <div class="container">
+        <div class="header">
+          <h1>Customer Order Visualization</h1>
+          <hr class="header-divider">
+        </div>
+        
+        <!-- Rest of your HTML, but replace PHP variables with Shopify liquid -->
+        <!-- Example: -->
+        <div class="order-info">
+          <div class="order-details">
+            Order #{{ order.order_number | default: 'N/A' }} | Date: {{ 'now' | date: '%m/%d/%Y' }} | Customer: {{ customer.name | default: 'Guest' }}
+          </div>
+        </div>
+        
+        <!-- Canvas for mockup -->
+        <canvas id="mockup-canvas" width="400" height="500" style="border:1px solid #666;"></canvas>
+        
+        <!-- Rest of your content -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .qr-modal {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8);
+    overflow: auto;
+  }
+  
+  .qr-modal-content {
+    background-color: #fefefe;
+    margin: 2% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 90%;
+    max-width: 1400px;
+    border-radius: 8px;
+    position: relative;
+  }
+  
+  .qr-modal-close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    position: sticky;
+    top: 0;
+    right: 0;
+    z-index: 10;
+  }
+  
+  .qr-modal-close:hover {
+    color: black;
+  }
+  
+  .qr-modal-body {
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 10px;
+  }
+</style>
+
+<script>
+  // Modal functionality
+  document.addEventListener('DOMContentLoaded', function() {
+    var modal = document.getElementById('qr-customizer-modal');
+    var closeBtn = document.querySelector('.qr-modal-close');
+    
+    window.openQRCustomizer = function() {
+      if (modal) {
+        modal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        initializeQRCustomizer();
+      }
+    }
+    
+    if (closeBtn) {
+      closeBtn.onclick = function() {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      }
+    }
+    
+    window.onclick = function(event) {
+      if (event.target == modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      }
+    }
+    
+    function initializeQRCustomizer() {
+      // Your existing fabric.js and QR code initialization code here
+      // Adapted for Shopify
+      const canvas = new fabric.Canvas('mockup-canvas');
+      // ... rest of your JavaScript
+    }
+  });
+</script>

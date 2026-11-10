@@ -1,0 +1,7 @@
+.umbrlux-sticky-bar {
+    display: block;
+}
+
+.umbrlux-sticky-bar.hide {
+    display: none;
+}

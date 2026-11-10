@@ -1,0 +1,2137 @@
+{%- comment -%}
+  Renders product content — QR Crest Builder (2026 redesign, inline section)
+
+  ========================================================================
+  CHANGE LOG
+  ========================================================================
+  v13.1 — Upload flow upgrades:
+          • Uploaded images are center-cropped to a square BEFORE being
+            stored — fixes oversize/overflow when users upload portrait
+            or landscape source images. Max output is 800x800 PNG.
+          • Uploaded QR is decoded with jsQR — the embedded URL is
+            extracted and shown in the preview + details summary +
+            sessionStorage payload + cart 'QR Link' property.
+          • SVG uploads bypass the crop (vector remains crisp).
+  v13   — Ray feedback 5/22:
+          • "Choose Crest"       → "Crest Position"
+          • "Memorable Color"    → "Umbrlux Colour" (British spelling)
+          • "QR Card Color"      → "Umbrlux Colour" in details row
+          • "QR Color"           → "QR Colour" in details row + cart property
+          • Dropped California/Yellow — back to 7 city colours
+          • New "Upload your QR" modal — user uploads existing QR image
+            (PNG/JPG/SVG), it's saved to sessionStorage and rendered on
+            the canvas in place of a generated QR. Tabs let the user
+            switch between "Generate QR" and "Upload QR".
+  v12 — Crest positions recalibrated per client spec.
+  v11 — Details summary clarifies QR Color (contrast) vs QR Card Color.
+  v10 — Removed localStorage canvas-PNG storage; CTA disabled until size.
+  v9  — Memorable Color hardcoded (not a Shopify variant).
+  v8  — Sold-out sizes get disabled + struck through.
+  v7  — Variant resolver wired into add-to-cart.
+  v6  — Consolidated responsive ladder.
+  v5  — Crest visual redone to match brand sample.
+  v4  — First brand-styled crest.
+  v3  — QR LOCKED.
+  v2  — Removed popup shell.
+  v1  — Replaced legacy theme markup with 2026 design.
+  ========================================================================
+{%- endcomment -%}
+
+{%- comment -%} ========== QR CREST BUILDER STYLES ========== {%- endcomment -%}
+<style>
+  /* ---------- design tokens (scoped to .qr-builder to avoid theme bleed) ---------- */
+  .qr-builder {
+    --ublx-bg:        #fafaf7;
+    --ublx-card:      #ffffff;
+    --ublx-ink:       #141413;
+    --ublx-ink-2:     #3d3d3a;
+    --ublx-muted:     #73726c;
+    --ublx-line:      rgba(31,30,29,0.12);
+    --ublx-line-2:    rgba(31,30,29,0.2);
+    --ublx-accent:    #1DCDB5;
+    --ublx-radius:    10px;
+    --ublx-radius-sm: 8px;
+    --ublx-radius-lg: 12px;
+
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 1rem;
+    border-radius: var(--ublx-radius-lg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: var(--ublx-ink);
+  }
+  .qr-builder * { box-sizing: border-box; }
+
+  /* ---------- header / breadcrumb ---------- */
+  .qr-builder .header {
+    padding: 0.25rem 0 1rem;
+    border-bottom: 0.5px solid var(--ublx-line);
+    margin-bottom: 1.25rem;
+  }
+  .qr-builder .breadcrumb-navigation {
+    font-size: 12px;
+    color: var(--ublx-muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .qr-builder .breadcrumb-navigation a { color: var(--ublx-muted); text-decoration: none; }
+  .qr-builder .breadcrumb-navigation a:hover { color: var(--ublx-ink); }
+  .qr-builder .breadcrumb-navigation .current-product { color: var(--ublx-ink); font-weight: 500; }
+
+  /* ---------- two-panel grid (MOBILE FIRST: single column) ---------- */
+  .qr-builder .main-contents {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+  .qr-builder .panel { display: flex; flex-direction: column; gap: 1rem; border: 1px solid #1f1e1d1f; }
+
+  @media (min-width: 1024px) {
+    .qr-builder .panel.left-content {
+      position: sticky;
+      top: 20px;
+    }
+  }
+  .qr-builder .panel-header {
+    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--ublx-muted); font-weight: 500;
+    border: none;
+  }
+  .qr-builder .panel-content {
+    background: var(--ublx-card);
+    border-radius: var(--ublx-radius);
+    padding: 1rem;
+  }
+
+  /* ---------- view tabs ---------- */
+  .qr-builder .view-tabs { display: flex; gap: 8px; margin-bottom: 1rem; }
+  .qr-builder .view-tab {
+    flex: 1; padding: 10px; background: transparent;
+    color: var(--ublx-muted);
+    border: 0.5px solid var(--ublx-line);
+    border-radius: var(--ublx-radius-sm);
+    font-size: 12px; font-weight: 500; letter-spacing: 1px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .qr-builder .view-tab:hover { border-color: var(--ublx-line-2); color: var(--ublx-ink); }
+  .qr-builder .view-tab.active { background: var(--ublx-ink); color: #fff; border-color: var(--ublx-ink); }
+
+  /* ---------- canvas ---------- */
+  .qr-builder .canvas_image {
+    aspect-ratio: 1/1;
+    max-height: 600px;
+    background: linear-gradient(180deg, #fafafa 0%, #f0f0f0 100%);
+    border-radius: var(--ublx-radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem; position: relative;
+    width: 100%;
+  }
+  .qr-builder #mockup-canvas {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    height: auto !important;
+    border: none !important;
+  }
+  .qr-builder .placement-badge {
+    position: absolute; top: 12px; left: 12px;
+    z-index: 10;
+    font-size: 10px; padding: 4px 10px;
+    background: rgba(255,255,255,0.95);
+    border-radius: 100px; letter-spacing: 1px;
+    color: var(--ublx-ink); font-weight: 500;
+  }
+
+  /* ---------- placement controls (hidden in current build) ---------- */
+  .qr-builder .placement-controls { display: none; }
+
+  .qr-builder #qr-pos-x[readonly],
+  .qr-builder #qr-pos-y[readonly] {
+    background: rgba(0,0,0,0.03);
+    color: var(--ublx-muted);
+    cursor: default;
+  }
+  .qr-builder .position-inputs { display: flex; gap: 8px; }
+  .qr-builder .position-input { flex: 1; display: flex; align-items: center; gap: 6px; }
+  .qr-builder .position-input > span { font-size: 11px; font-weight: 500; color: var(--ublx-muted); }
+  .qr-builder #qr-pos-x,
+  .qr-builder #qr-pos-y { text-align: center; }
+  .qr-builder #save-qr-btn {
+    height: 95%; padding: 0 14px;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.5px;
+    background: var(--ublx-ink); color: #fff;
+    border: none; border-radius: var(--ublx-radius-sm);
+    cursor: pointer; white-space: nowrap;
+    min-width: 85px;
+  }
+  .qr-builder #save-qr-btn:hover { opacity: 0.9; }
+
+  /* ---------- right panel meta ---------- */
+  .qr-builder .product-meta { margin-bottom: 0.5rem; }
+  .qr-builder .product-meta .eyebrow {
+    font-size: 11px; color: var(--ublx-muted);
+    letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px;
+  }
+  .qr-builder .product-meta h1 {
+    font-size: 20px; margin: 0 0 6px; font-weight: 500;
+    color: var(--ublx-ink); line-height: 1.2;
+  }
+  .qr-builder .product-meta .price { font-size: 17px; font-weight: 500; color: var(--ublx-ink); }
+
+  .qr-builder .field { margin-top: 1.25rem; }
+  .qr-builder .field-label {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; color: var(--ublx-ink-2);
+    letter-spacing: 1.5px; text-transform: uppercase;
+    margin-bottom: 8px; font-weight: 500;
+  }
+
+  /* ---------- QR SOURCE TABS (Generate / Upload) ---------- */
+  .qr-builder .qr-source-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .qr-builder .qr-source-tab {
+    flex: 1;
+    padding: 10px 12px;
+    background: transparent;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--ublx-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+    border-radius: 8px;
+    border: 1px solid var(--ublx-muted);
+    border-radius: 8px;
+  }
+  .qr-builder .qr-source-tab:hover { color: var(--ublx-ink); }
+  .qr-builder .qr-source-tab.active {
+    color: #fff;
+    background: var(--ublx-ink);
+  }
+
+  .qr-builder .qr-source-panel { display: none; }
+  .qr-builder .qr-source-panel.active { display: block; }
+
+  /* ---------- UPLOAD QR INPUT (inside Upload tab) ---------- */
+  .qr-builder .qr-upload-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .qr-builder .qr-upload-trigger {
+    flex: 1;
+    padding: 11px 12px;
+    background: var(--ublx-card);
+    border: 1px dashed var(--ublx-line-2);
+    border-radius: var(--ublx-radius-sm);
+    font-size: 12px;
+    color: var(--ublx-ink-2);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .qr-builder .qr-upload-trigger:hover {
+    border-color: var(--ublx-ink);
+    background: rgba(0,0,0,0.02);
+  }
+  .qr-builder .qr-upload-trigger.has-image {
+    border-style: solid;
+    background: rgba(29,205,181,0.08);
+    border-color: var(--ublx-accent);
+    color: var(--ublx-ink);
+  }
+  .qr-builder #qr-upload-input { display: none; }
+
+  /* ---------- MEMORABLE COLOR ---------- */
+  .qr-builder .color-hero {
+    aspect-ratio: 16/9;
+    border-radius: var(--ublx-radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden; margin-bottom: 14px;
+    background: var(--ublx-accent); transition: background 0.2s;
+  }
+  .qr-builder .color-hero svg { width: 90%; height: 100%; }
+  .qr-builder .color-hero-meta {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;
+  }
+  .qr-builder .color-hero-meta .label-stack .l1 {
+    font-size: 10px; color: var(--ublx-muted);
+    letter-spacing: 1.5px; margin-bottom: 2px; text-transform: uppercase;
+  }
+  .qr-builder .color-hero-meta .label-stack .l2 {
+    font-size: 15px; font-weight: 500; color: var(--ublx-ink); text-transform: capitalize;
+  }
+  .qr-builder .color-hero-meta .hex {
+    font-size: 10px; color: var(--ublx-muted);
+    letter-spacing: 1px; font-family: ui-monospace, monospace;
+  }
+  .qr-builder #qr-colors {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px; margin-top: 10px;
+  }
+  .qr-builder .color-box {
+    width: 100% !important; height: 50px !important;
+    aspect-ratio: 1 !important;
+    border-radius: var(--ublx-radius-sm) !important;
+    cursor: pointer; position: relative; overflow: hidden;
+    border: 0.5px solid rgba(0,0,0,0.08) !important;
+    transition: transform 0.12s, box-shadow 0.12s;
+    background-image:
+      linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0) 50%),
+      linear-gradient(225deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.18) 100%);
+    display: flex; align-items: center; justify-content: center;
+    text-transform: uppercase;
+    color: #fff; font-weight: 700; font-size: 12px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+  .qr-builder .color-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px -2px rgba(0,0,0,0.1);
+  }
+  .qr-builder .color-box.active {
+    box-shadow: 0 0 0 2px var(--ublx-ink), 0 4px 10px -2px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+  }
+
+  /* ---------- CREST POSITION (formerly "Choose Crest") ---------- */
+  .qr-builder .qr {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    flex-direction: initial !important;
+    align-items: stretch !important;
+  }
+  .qr-builder .qr_section { display: contents !important; }
+  .qr-builder .qr_code { display: block !important; }
+  .qr-builder .qr_code button[data-qr-style] {
+    width: 100% !important; height: auto !important;
+    aspect-ratio: 1.7 !important;
+    margin: 0 !important; padding: 6px 4px !important;
+    background: var(--ublx-card);
+    border: 1px solid var(--ublx-line);
+    border-radius: var(--ublx-radius-sm);
+    font-size: 10px; font-weight: 500;
+    letter-spacing: 0.6px; color: var(--ublx-ink-2);
+    cursor: pointer;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 6px; transition: all 0.15s;
+    text-transform: uppercase;
+  }
+
+  @media (min-width: 1024px) {
+    .qr-builder .qr_code button[data-qr-style] {
+      aspect-ratio: 1 !important;
+    }
+  }
+  .qr-builder .qr_code button[data-qr-style].active {
+    border: 2px solid #000; background: #000; color: #fff;
+  }
+  .qr-builder .qr_code button[data-qr-style]::before {
+    content: ""; width: 18px; height: 18px;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'><path d='M3 3h7v7H3V3zm2 2v3h3V5H5zm9-2h7v7h-7V3zm2 2v3h3V5h-3zM3 14h7v7H3v-7zm2 2v3h3v-3H5zm9 0h2v2h-2v-2zm0 3h2v2h-2v-2zm3-3h2v2h-2v-2zm0 3h4v2h-4v-2zm3-3h2v2h-2v-2zm0-3h2v2h-2v-2z'/></svg>") no-repeat center / contain;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'><path d='M3 3h7v7H3V3zm2 2v3h3V5H5zm9-2h7v7h-7V3zm2 2v3h3V5h-3zM3 14h7v7H3v-7zm2 2v3h3v-3H5zm9 0h2v2h-2v-2zm0 3h2v2h-2v-2zm3-3h2v2h-2v-2zm0 3h4v2h-4v-2zm3-3h2v2h-2v-2zm0-3h2v2h-2v-2z'/></svg>") no-repeat center / contain;
+  }
+  .qr-builder .qr_code button[data-qr-style]:hover { opacity: 0.8; }
+
+  /* ---------- QR CONTRAST presets ---------- */
+  .qr-builder .qr-contrast { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .qr-builder .qr-contrast button {
+    padding: 12px;
+    border: 0.5px solid var(--ublx-line);
+    border-radius: var(--ublx-radius-sm);
+    background: var(--ublx-card);
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; font-size: 12px; font-weight: 500;
+    letter-spacing: 0.5px; cursor: pointer; color: var(--ublx-ink);
+  }
+  .qr-builder .qr-contrast button .chip {
+    width: 14px; height: 14px; border-radius: 3px;
+    border: 0.5px solid rgba(0,0,0,0.1);
+  }
+  .qr-builder .qr-contrast button[data-contrast="black"] .chip { background: #000; }
+  .qr-builder .qr-contrast button[data-contrast="white"] .chip { background: #fff; }
+  .qr-builder .qr-contrast button.active {
+    background: var(--ublx-ink); color: #fff; border-color: var(--ublx-ink);
+  }
+  .qr-builder .qr-contrast button.active .chip { background: #fff; border: 1px solid #fff; }
+
+  /* ---------- SIZE row ---------- */
+  .qr-builder .qr-style-section {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 5px !important; flex-wrap: initial !important;
+  }
+  .qr-builder .qr_style { display: block; }
+  .qr-builder .size-btn {
+    width: 100% !important; height: auto !important;
+    aspect-ratio: 1.3/1 !important; margin: 0 !important;
+    background: var(--ublx-card);
+    border: 0.5px solid var(--ublx-line);
+    border-radius: var(--ublx-radius-sm);
+    font-size: 12px; font-weight: 500;
+    color: var(--ublx-ink); cursor: pointer; transition: all 0.15s;
+  }
+  .qr-builder .size-btn:hover { border-color: var(--ublx-line-2); }
+  .qr-builder .size-btn[style*="solid #000"],
+  .qr-builder .size-btn[style*="solid black"] {
+    background: var(--ublx-ink) !important; color: #fff !important;
+  }
+
+  /* Sold-out size buttons: disabled + struck-through */
+  .qr-builder .size-btn:disabled,
+  .qr-builder .size-btn.sold-out {
+    cursor: not-allowed !important;
+    opacity: 0.4;
+    text-decoration: line-through;
+    background: var(--ublx-card) !important;
+    color: var(--ublx-muted) !important;
+    border-color: var(--ublx-line) !important;
+  }
+  .qr-builder .size-btn:disabled:hover,
+  .qr-builder .size-btn.sold-out:hover {
+    border-color: var(--ublx-line) !important;
+    transform: none;
+  }
+
+  /* ---------- QR LINK input ---------- */
+  .qr-builder #qr-link-input {
+    width: 100%; padding: 11px 12px; font-size: 13px;
+    border: 0.5px solid var(--ublx-line);
+    border-radius: var(--ublx-radius-sm);
+    background: var(--ublx-card); color: var(--ublx-ink); outline: none;
+  }
+  .qr-builder #qr-link-input:focus { border-color: var(--ublx-ink-2); }
+
+  /* ---------- QR details summary ---------- */
+  .qr-builder .qr-details {
+    margin-top: 1.25rem; padding: 12px;
+    background: rgba(0,0,0,0.025);
+    border-radius: var(--ublx-radius-sm);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .qr-builder .qr-details .detail-row {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--ublx-muted);
+  }
+  .qr-builder .qr-details .detail-row strong {
+    color: var(--ublx-ink-2); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .qr-builder .qr-details .detail-row span:not(strong) {
+    color: var(--ublx-ink); font-weight: 500;
+    text-align: right;
+    word-break: break-all;
+    max-width: 60%;
+  }
+
+  /* ---------- CTA ---------- */
+  .qr-builder #place-order-btn {
+    width: 100% !important; height: auto !important;
+    padding: 13px !important;
+    background: var(--ublx-ink) !important; color: #fff !important;
+    border: none !important;
+    border-radius: var(--ublx-radius-sm) !important;
+    font-size: 12px !important; font-weight: 500 !important;
+    letter-spacing: 1.5px !important; cursor: pointer;
+    text-transform: uppercase; margin-top: 1.25rem;
+    transition: opacity 0.15s;
+  }
+  .qr-builder #place-order-btn:hover { opacity: 0.9; }
+  .qr-builder #place-order-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: var(--ublx-muted) !important;
+  }
+  .qr-builder #place-order-btn:disabled:hover { opacity: 0.55; }
+  .qr-builder .trust-row {
+    display: flex; justify-content: center; gap: 14px;
+    font-size: 10px; color: var(--ublx-muted);
+    margin-top: 14px; letter-spacing: 0.5px;
+  }
+
+  /* ---------- legacy fabric.js hooks ---------- */
+  .canvas-container { position: relative; z-index: 1; width: 100% !important; height: stretch !important; }
+  .upper-canvas { cursor: default; }
+
+  /* ============================================================
+     QR UPLOAD MODAL
+     ============================================================ */
+  .qr-upload-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  .qr-upload-modal.is-open { display: flex; }
+  .qr-upload-modal .modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    cursor: pointer;
+  }
+  .qr-upload-modal .modal-panel {
+    position: relative;
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.75rem;
+    max-width: 480px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  }
+  .qr-upload-modal .modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: none;
+    font-size: 22px;
+    line-height: 1;
+    color: #73726c;
+    cursor: pointer;
+  }
+  .qr-upload-modal .modal-close:hover { color: #141413; }
+  .qr-upload-modal h3 {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0 0 6px;
+    color: #141413;
+  }
+  .qr-upload-modal .modal-sub {
+    font-size: 12px;
+    color: #73726c;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin: 0 0 1.25rem;
+  }
+  .qr-upload-modal .dropzone {
+    border: 2px dashed rgba(31,30,29,0.2);
+    border-radius: 10px;
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: #fafaf7;
+
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  #qr-upload-input {
+    visibility: hidden;
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+
+  .qr-upload-modal .dropzone:hover,
+  .qr-upload-modal .dropzone.is-dragging {
+    border-color: #1DCDB5;
+    background: rgba(29,205,181,0.05);
+  }
+  .qr-upload-modal .dropzone-icon {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 12px;
+    color: #73726c;
+  }
+  .qr-upload-modal .dropzone-text {
+    font-size: 14px;
+    color: #141413;
+    font-weight: 500;
+    margin: 0 0 4px;
+  }
+  .qr-upload-modal .dropzone-hint {
+    font-size: 11px;
+    color: #73726c;
+    letter-spacing: 0.5px;
+  }
+  .qr-upload-modal .processing {
+    margin-top: 12px;
+    font-size: 12px;
+    color: #73726c;
+    text-align: center;
+    display: none;
+  }
+  .qr-upload-modal .processing.is-shown { display: block; }
+  .qr-upload-modal .processing::before {
+    content: "";
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+    border: 2px solid #1DCDB5;
+    border-top-color: transparent;
+    border-radius: 50%;
+    vertical-align: middle;
+    animation: cd-spin 0.8s linear infinite;
+  }
+  @keyframes cd-spin { to { transform: rotate(360deg); } }
+
+  .qr-upload-modal .preview-wrap {
+    margin-top: 1.25rem;
+    padding: 1rem;
+    background: #fafaf7;
+    border-radius: 8px;
+    display: none;
+    text-align: center;
+  }
+  .qr-upload-modal .preview-wrap.is-shown { display: block; }
+  .qr-upload-modal .preview-img {
+    max-width: 180px;
+    max-height: 180px;
+    border-radius: 4px;
+    border: 1px solid rgba(31,30,29,0.08);
+    margin: 0 auto;
+    display: block;
+  }
+  .qr-upload-modal .preview-filename {
+    margin-top: 10px;
+    font-size: 11px;
+    color: #73726c;
+    word-break: break-all;
+  }
+  .qr-upload-modal .preview-decoded {
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: rgba(29,205,181,0.1);
+    border-radius: 6px;
+    font-size: 11px;
+    color: #141413;
+    word-break: break-all;
+    text-align: left;
+    display: none;
+  }
+  .qr-upload-modal .preview-decoded.is-shown { display: block; }
+  .qr-upload-modal .preview-decoded strong {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #08846f;
+    margin-bottom: 3px;
+    font-weight: 600;
+  }
+  .qr-upload-modal .preview-decoded.is-warn {
+    background: rgba(255,165,0,0.08);
+    color: #884400;
+  }
+  .qr-upload-modal .preview-decoded.is-warn strong { color: #884400; }
+  .qr-upload-modal .modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 1.25rem;
+  }
+  .qr-upload-modal .modal-btn {
+    flex: 1;
+    padding: 12px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-radius: 8px;
+    border: 0.5px solid rgba(31,30,29,0.2);
+    background: #fff;
+    color: #141413;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .qr-upload-modal .modal-btn.is-primary {
+    background: #141413;
+    color: #fff;
+    border-color: #141413;
+  }
+  .qr-upload-modal .modal-btn.is-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .qr-upload-modal .modal-btn:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+  .qr-upload-modal .modal-error {
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(229,75,32,0.08);
+    color: #c33;
+    font-size: 12px;
+    border-radius: 6px;
+    display: none;
+  }
+  .qr-upload-modal .modal-error.is-shown { display: block; }
+
+  /* ============================================================
+     RESPONSIVE LADDER
+     ============================================================ */
+
+  /* ---- Tiny mobile (< 480px) ---- */
+  @media (max-width: 479px) {
+    .qr-builder { padding: 0.5rem; }
+    .qr-builder .panel-content { padding: 0.75rem; }
+    .qr-builder .qr-style-section { grid-template-columns: repeat(3, 1fr) !important; }
+    .qr-builder .qr { grid-template-columns: 1fr 1fr; }
+    .qr-builder .color-box { height: 44px !important; font-size: 11px; }
+    .qr-builder .product-meta h1 { font-size: 18px; }
+    .qr-builder .breadcrumb-navigation { font-size: 10px; }
+    .qr-builder .placement-badge { top: 6px; left: 6px; font-size: 9px; padding: 3px 8px; }
+  }
+
+  /* ---- Tablet (768–1023px) ---- */
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .qr-builder { padding: 1.25rem; }
+    .qr-builder .main-contents {
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+    .qr-builder .panel-content { padding: 1rem; }
+    .qr-builder #qr-colors { grid-template-columns: repeat(3, 1fr); }
+    .qr-builder .product-meta h1 { font-size: 22px; }
+  }
+
+  /* ---- Desktop landscape (>= 1024px) ---- */
+  @media (min-width: 1024px) {
+    .qr-builder .main-contents {
+      grid-template-columns: 1.3fr 1fr;
+      gap: 1.5rem;
+    }
+    .qr-builder .panel-content { padding: 1.25rem; }
+    .qr-builder #qr-colors { grid-template-columns: repeat(4, 1fr); }
+    .qr-builder .product-meta h1 { font-size: 26px; }
+    .qr-builder #place-order-btn { padding: 15px !important; font-size: 13px !important; }
+  }
+
+  /* ---- Mobile landscape (short screens) ---- */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .qr-builder { padding: 0.5rem; }
+    .qr-builder .main-contents {
+      grid-template-columns: 1.2fr 1fr;
+      gap: 0.75rem;
+    }
+    .qr-builder .panel-content { padding: 0.75rem; }
+    .qr-builder .header { margin-bottom: 0.5rem; padding-bottom: 0.5rem; }
+    .qr-builder .product-meta h1 { font-size: 16px; margin-bottom: 2px; }
+    .qr-builder .product-meta { margin-bottom: 0.25rem; }
+    .qr-builder .field { margin-top: 0.75rem; }
+    .qr-builder .color-hero { aspect-ratio: 16/5; }
+    .qr-builder .color-box { height: 38px !important; font-size: 11px; }
+    .qr-builder #qr-colors { grid-template-columns: repeat(4, 1fr); }
+    .qr-builder #place-order-btn { padding: 10px !important; margin-top: 0.75rem; }
+  }
+</style>
+
+{%- comment -%} ========== ISOMETRIC CUBE SVG ========== {%- endcomment -%}
+{%- capture iso_cube -%}
+  <svg viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <polygon points="100,15 150,40 100,65 50,40" fill="rgba(255,255,255,0.18)" stroke="rgba(0,0,0,0.12)" stroke-width="0.5"/>
+    <polygon points="50,40 100,65 100,125 50,100" fill="rgba(0,0,0,0.1)" stroke="rgba(0,0,0,0.12)" stroke-width="0.5"/>
+    <polygon points="100,65 150,40 150,100 100,125" fill="rgba(0,0,0,0.22)" stroke="rgba(0,0,0,0.12)" stroke-width="0.5"/>
+  </svg>
+{%- endcapture -%}
+
+{%- comment -%} ========== QR CREST BUILDER MARKUP ========== {%- endcomment -%}
+<div class="qr-builder">
+
+  <div class="header">
+    <div class="breadcrumb-navigation">
+      <a href="/">Home</a> /
+      {% if product.collections.size > 0 %}
+        {% assign main_collection = product.collections | first %}
+        <a href="{{ main_collection.url }}">{{ main_collection.title }}</a> /
+      {% else %}
+        <a href="/collections/all">All Products</a> /
+      {% endif %}
+      <span class="current-product">{{ product.title }}</span>
+    </div>
+  </div>
+
+  <div class="main-contents">
+
+    {%- comment -%} ===== LEFT: Garment Mockup ===== {%- endcomment -%}
+    <div class="panel left-content">
+      <div class="panel-header">Live Preview</div>
+
+      <div class="panel-content garment-mockup">
+        <div class="view-tabs">
+          <button type="button" class="view-tab active">FRONT VIEW</button>
+          <button type="button" class="view-tab">BACK VIEW</button>
+        </div>
+
+        <div class="canvas" style="display:flex; justify-content:center;">
+          <div class="canvas_image">
+            <span class="placement-badge" id="placement-badge">Select a Crest Position</span>
+            <canvas id="mockup-canvas" width="600" height="600"></canvas>
+          </div>
+        </div>
+
+        <div class="placement-controls">
+          <h3>Placement Controls</h3>
+          <div class="control-row">
+            <div class="printSide">
+              <label>Print Side:</label>
+              <select id="print-side-select">
+                <option value="front" selected="">Front</option>
+                <option value="back">Back</option>
+              </select>
+            </div>
+            <div class="positionInputs">
+              <label>Position:</label>
+              <div class="position-inputs">
+                <div class="position-input">
+                  <span>X:</span>
+                  <input type="text" id="qr-pos-x" value="">
+                </div>
+                <div class="position-input">
+                  <span>Y:</span>
+                  <input type="text" id="qr-pos-y" value="">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    {%- comment -%} ===== RIGHT: Design Controls ===== {%- endcomment -%}
+    <div class="panel">
+      <div class="panel-header">QR &amp; Design Check</div>
+
+      <div class="panel-content qr-section">
+
+        <div class="product-meta">
+          <div class="eyebrow">Premium Essential</div>
+          <h1>
+            {{ product.title }}
+          </h1>
+          <div class="price">{{ product.price | money }}</div>
+        </div>
+
+        {%- comment -%} ----- QR GENERATOR / UPLOAD TABS ----- {%- endcomment -%}
+        <div class="field">
+          <div class="field-label"><span>QR Code</span></div>
+
+          <div class="qr-source-tabs">
+            <button type="button" class="qr-source-tab active" data-source-tab="generate">Generate QR</button>
+            <button type="button" class="qr-source-tab" data-source-tab="upload">Already have a QR</button>
+          </div>
+
+          {%- comment -%} GENERATE TAB ----- {%- endcomment -%}
+          <div class="qr-source-panel active" data-source-panel="generate">
+            <div class="position-inputs">
+              <div class="position-input" style="flex:1;">
+                <input type="text" id="qr-link-input" placeholder="https://yourbrand.com">
+                <button type="button" id="save-qr-btn">Save QR</button>
+              </div>
+            </div>
+          </div>
+
+          {%- comment -%} UPLOAD TAB ----- {%- endcomment -%}
+          <div class="qr-source-panel" data-source-panel="upload">
+            <div class="qr-upload-row">
+              <button type="button" class="qr-upload-trigger" id="qr-upload-trigger">
+                Choose QR image to upload
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {%- comment -%} ----- CREST POSITION (was "Choose Crest") ----- {%- endcomment -%}
+        <div class="field">
+          <div class="field-label"><span>Crest Position</span></div>
+          <div class="qr">
+            <div class="qr_section">
+              <div class="qr_code" id="qr-code1">
+                <button type="button" data-qr-style="Signature">Signature</button>
+              </div>
+              <div class="qr_code" id="qr-code2">
+                <button type="button" data-qr-style="Statement">Statement</button>
+              </div>
+            </div>
+            <div class="qr_section">
+              <div class="qr_code" id="qr-code3">
+                <button type="button" data-qr-style="Authority">Authority</button>
+              </div>
+              <div class="qr_code" id="qr-code4">
+                <button type="button" data-qr-style="Mark">Mark</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        {%- comment -%} ----- UMBRLUX COLOUR (was "Memorable Color") -----
+          Swatches rendered by JS from MEMORABLE_COLORS constant.
+          NOT a Shopify variant — it's a line-item property only.
+        {%- endcomment -%}
+        <div class="field">
+          <div class="color-hero-meta">
+            <div class="label-stack">
+              <div class="l1">Umbrlux Colour</div>
+              <div class="l2" id="qr-crest-color">&mdash;</div>
+            </div>
+            <div class="hex" id="qr-hex-display"></div>
+          </div>
+
+          <div class="color-hero" id="color-hero">
+            {{ iso_cube }}
+          </div>
+
+          <div id="qr-colors"></div>
+        </div>
+
+        {%- comment -%} ----- QR CONTRAST ----- {%- endcomment -%}
+        <div class="field">
+          <div class="field-label"><span>QR Contrast</span></div>
+          <div class="qr-contrast">
+            <button type="button" data-contrast="black" class="active">
+              <span class="chip"></span> BLACK
+            </button>
+            <button type="button" data-contrast="white">
+              <span class="chip"></span> WHITE
+            </button>
+          </div>
+        </div>
+
+        {%- comment -%} ----- SIZE ----- {%- endcomment -%}
+        <div class="field">
+          <div class="field-label"><span>Size</span></div>
+          <div class="qr-style">
+            <div class="qr-style-section">
+              {% for option in product.options_with_values %}
+                {% assign option_name = option.name | downcase %}
+                {% if option_name contains 'size' %}
+                  {% for value in option.values %}
+                    <div class="qr_style">
+                      <button type="button" class="size-btn" data-size="{{ value }}">{{ value }}</button>
+                    </div>
+                  {% endfor %}
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        {%- comment -%} ----- QR DETAILS SUMMARY -----
+          QR Colour       = contrast (BLACK / WHITE)         — #qr-color-display
+          Umbrlux Colour  = memorable color (Chicago/LA/…)   — #qr-card-color-display
+        {%- endcomment -%}
+        <div class="qr-details">
+          <div class="detail-row"><strong>Link</strong>           <span id="qr-link-display">&mdash;</span></div>
+          <div class="detail-row"><strong>QR Source</strong>      <span id="qr-source-display">Generated</span></div>
+          <div class="detail-row"><strong>QR Colour</strong>      <span id="qr-color-display">&mdash;</span></div>
+          <div class="detail-row"><strong>Umbrlux Colour</strong> <span id="qr-card-color-display">&mdash;</span></div>
+          <div class="detail-row"><strong>QR Position</strong>    <span id="qr-style-display">&mdash;</span></div>
+        </div>
+
+        <button type="button" id="place-order-btn" disabled>
+          Select a size
+        </button>
+
+        <div class="trust-row">
+          <span>&#10004; Free shipping $75+</span>
+          <span>&#10004; Scan-verified</span>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{%- comment -%} ========== QR UPLOAD MODAL ========== {%- endcomment -%}
+<div class="qr-upload-modal" id="qr-upload-modal" aria-hidden="true" role="dialog">
+  <div class="modal-backdrop"></div>
+  <div class="modal-panel">
+    <button type="button" class="modal-close" id="qr-upload-close" aria-label="Close">&times;</button>
+
+    <h3>Upload Your QR Code</h3>
+    <p class="modal-sub">PNG, JPG, or SVG &middot; Up to 5 MB</p>
+
+    <label class="dropzone" id="qr-upload-dropzone">
+      <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="17 8 12 3 7 8"></polyline>
+        <line x1="12" y1="3" x2="12" y2="15"></line>
+      </svg>
+      <p class="dropzone-text">Click to choose a file, or drop it here</p>
+      <p class="dropzone-hint">Any size — we'll crop to square automatically</p>
+      <input type="file" id="qr-upload-input" accept="image/png,image/jpeg,image/svg+xml">
+    </label>
+
+    <div class="processing" id="qr-upload-processing">Processing image…</div>
+
+    <div class="modal-error" id="qr-upload-error"></div>
+
+    <div class="preview-wrap" id="qr-upload-preview">
+      <img class="preview-img" id="qr-upload-preview-img" alt="Uploaded QR preview">
+      <div class="preview-filename" id="qr-upload-filename"></div>
+      <div class="preview-decoded" id="qr-upload-decoded"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="modal-btn" id="qr-upload-cancel">Cancel</button>
+      <button type="button" class="modal-btn is-primary" id="qr-upload-save" disabled>Save QR</button>
+    </div>
+  </div>
+</div>
+
+{%- comment -%} ========== EXTERNAL LIBRARIES ========== {%- endcomment -%}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+{%- comment -%} ========== CONSOLIDATED QR CREST BUILDER MODULE ========== {%- endcomment -%}
+<script>
+(function () {
+  'use strict';
+
+  // ============================================================
+  // CONFIG
+  // ============================================================
+  const QR_POSITIONS = {
+    Signature: { side: 'front', left: 270, top: 135, width: 45, height: 45 },
+    Statement: { side: 'back',  left: 255, top: 190, width: 72, height: 72 },
+    Authority: { side: 'back',  left: 255, top: 180, width: 88, height: 88 },
+    Mark:      { side: 'front', left: 340, top: 145, width: 45, height: 45 }
+  };
+
+  const PLACEMENT_LABELS = {
+    Signature: 'FRONT NECK \u00B7 2"',
+    Statement: 'BACK CENTER \u00B7 4.5"',
+    Authority: 'BACK CENTER \u00B7 5.5"',
+    Mark:      'LEFT BREAST \u00B7 2.5"'
+  };
+
+  // ---------- CREST VISUAL CONSTANTS ----------
+  const CREST = {
+    tealColor:    '#1DCDB5',
+    cardColor:    '#FFFFFF',
+    centerBg:     '#1f1f1f',
+    centerText:   '#c19a5b',
+    brandText:    '#1a3a8f',
+
+    cardPadding:    0.05,
+    tabOffsetX:    -0.16,
+    tabOffsetY:     0.16,
+    centerSize:     0.26,
+    centerTextSize: 0.055,
+    brandFontSize:  0.085,
+    brandPadX:      0.06,
+    brandPadY:      0.01
+  };
+
+  // ---------- MEMORABLE COLORS (hardcoded — city names) ----------
+  // California/Yellow removed per Ray 5/22 (was the odd one out).
+  const MEMORABLE_COLORS = [
+    { label: 'Chicago',  hex: '#08EFC0' },
+    { label: 'LA',       hex: '#FA6605' },
+    { label: 'Paris',    hex: '#2C10CF' },
+    { label: 'Spain',    hex: '#F7868D' },
+    { label: 'Miami',    hex: '#D96F76' },
+    { label: 'London',   hex: '#A655C0' },
+    { label: 'New York', hex: '#E54B20' }
+  ];
+
+  // ---------- UPLOAD CONSTRAINTS ----------
+  const UPLOAD_MAX_BYTES   = 5 * 1024 * 1024; // 5 MB
+  const UPLOAD_MIME_TYPES  = ['image/png', 'image/jpeg', 'image/svg+xml'];
+  const UPLOAD_STORAGE_KEY = 'umbrlux_uploaded_qr';
+  const UPLOAD_MAX_DIMENSION = 800; // cropped output capped at 800x800 PNG
+
+  // ---------- CTA TEXT ----------
+  const PRICE_LABEL    = '{{ product.price | money }}';
+  const CTA_READY_TEXT = 'Add to Cart \u00B7 ' + PRICE_LABEL;
+  const CTA_NEED_SIZE  = 'Select a size';
+
+  const FRONT_IMAGE_URL  = 'https:' + {{ product.metafields.custom.front_image | image_url | json }};
+  const BACK_IMAGE_URL   = 'https:' + {{ product.metafields.custom.back_image  | image_url | json }};
+  const VARIANT_ID       = {{ product.selected_or_first_available_variant.id }};
+  const PRODUCT_VARIANTS = {{ product.variants | json }};
+
+  // ============================================================
+  // STATE
+  // ============================================================
+  const state = {
+    canvas: null,
+    productFront: null,
+    productBack: null,
+    currentSide: 'front',
+    currentQRLink: '',
+    qrSource: 'generated',        // 'generated' | 'uploaded'
+    uploadedQRDataUrl: '',         // cropped square data URL of uploaded QR
+    uploadedQRFilename: '',
+    uploadedQRDecodedUrl: '',      // URL decoded from the uploaded QR (or '')
+    selectedQRColor: '#000000',
+    selectedContrast: 'black',
+    selectedQRBgColor: '#08EFC0',
+    selectedQRColorLabel: '',
+    selectedQRSize: '',
+    selectedQRStyle: '',
+    isInitialized: false
+  };
+
+  // ============================================================
+  // DOM REFERENCES
+  // ============================================================
+  const dom = {};
+
+  function cacheDom() {
+    dom.canvas             = document.getElementById('mockup-canvas');
+    dom.placementBadge     = document.getElementById('placement-badge');
+    dom.printSideSelect    = document.getElementById('print-side-select');
+    dom.qrLinkInput        = document.getElementById('qr-link-input');
+    dom.qrLinkDisplay      = document.getElementById('qr-link-display');
+    dom.qrSourceDisplay    = document.getElementById('qr-source-display');
+    dom.qrColorDisplay     = document.getElementById('qr-color-display');
+    dom.qrCardColorDisplay = document.getElementById('qr-card-color-display');
+    dom.qrStyleDisplay     = document.getElementById('qr-style-display');
+    dom.qrCrestColorLabel  = document.getElementById('qr-crest-color');
+    dom.qrHexDisplay       = document.getElementById('qr-hex-display');
+    dom.colorHero          = document.getElementById('color-hero');
+    dom.qrPosX             = document.getElementById('qr-pos-x');
+    dom.qrPosY             = document.getElementById('qr-pos-y');
+    dom.saveQrBtn          = document.getElementById('save-qr-btn');
+    dom.placeOrderBtn      = document.getElementById('place-order-btn');
+    dom.sizeButtons        = document.querySelectorAll('.size-btn');
+    dom.colorBoxes         = document.querySelectorAll('.color-box');
+    dom.viewTabs           = document.querySelectorAll('.view-tab');
+    dom.qrStyleButtons     = document.querySelectorAll('.qr_code button');
+    dom.contrastButtons    = document.querySelectorAll('.qr-contrast button[data-contrast]');
+
+    // QR source tabs
+    dom.sourceTabs         = document.querySelectorAll('.qr-source-tab');
+    dom.sourcePanels       = document.querySelectorAll('.qr-source-panel');
+
+    // Upload trigger + modal
+    dom.uploadTrigger      = document.getElementById('qr-upload-trigger');
+    dom.uploadModal        = document.getElementById('qr-upload-modal');
+    dom.uploadClose        = document.getElementById('qr-upload-close');
+    dom.uploadCancel       = document.getElementById('qr-upload-cancel');
+    dom.uploadSave         = document.getElementById('qr-upload-save');
+    dom.uploadInput        = document.getElementById('qr-upload-input');
+    dom.uploadDropzone     = document.getElementById('qr-upload-dropzone');
+    dom.uploadError        = document.getElementById('qr-upload-error');
+    dom.uploadProcessing   = document.getElementById('qr-upload-processing');
+    dom.uploadPreview      = document.getElementById('qr-upload-preview');
+    dom.uploadPreviewImg   = document.getElementById('qr-upload-preview-img');
+    dom.uploadFilename     = document.getElementById('qr-upload-filename');
+    dom.uploadDecoded      = document.getElementById('qr-upload-decoded');
+  }
+
+  // ============================================================
+  // IMAGE PROCESSING HELPERS
+  // ============================================================
+
+  /**
+   * Load a data URL into an Image element, returns Promise<HTMLImageElement>.
+   */
+  function loadImage(dataUrl) {
+    return new Promise(function (resolve, reject) {
+      const img = new Image();
+      img.onload = function () { resolve(img); };
+      img.onerror = function () { reject(new Error('Failed to load image.')); };
+      img.src = dataUrl;
+    });
+  }
+
+  /**
+   * Center-crop an image (provided as data URL) to a square, capped at
+   * UPLOAD_MAX_DIMENSION on each side. Output is a PNG data URL.
+   * SVG inputs are returned unchanged (vector, scales cleanly).
+   */
+  function cropImageToSquare(dataUrl) {
+    // SVG bypass — fabric.js will scale the vector to whatever size we need.
+    if (typeof dataUrl === 'string' && dataUrl.indexOf('data:image/svg+xml') === 0) {
+      return Promise.resolve(dataUrl);
+    }
+
+    return loadImage(dataUrl).then(function (img) {
+      const srcW = img.naturalWidth || img.width;
+      const srcH = img.naturalHeight || img.height;
+      const side = Math.min(srcW, srcH);
+      const sx   = Math.floor((srcW - side) / 2);
+      const sy   = Math.floor((srcH - side) / 2);
+
+      const out = Math.min(side, UPLOAD_MAX_DIMENSION);
+
+      const canvas  = document.createElement('canvas');
+      canvas.width  = out;
+      canvas.height = out;
+      const ctx = canvas.getContext('2d');
+
+      // White background — preserves the QR quiet zone if source has alpha.
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, out, out);
+
+      ctx.drawImage(img, sx, sy, side, side, 0, 0, out, out);
+
+      // PNG keeps QR modules crisp (no JPEG compression artifacts).
+      return canvas.toDataURL('image/png');
+    });
+  }
+
+  /**
+   * Decode the QR content from a data URL. Returns a Promise that
+   * resolves to the decoded string (URL/text), or null if no QR is
+   * detected. SVG inputs are rasterized via Image first.
+   *
+   * Uses jsQR (loaded via CDN script tag above).
+   */
+  function decodeQRFromDataUrl(dataUrl) {
+    if (typeof jsQR === 'undefined') {
+      console.warn('jsQR not loaded — skipping QR decode.');
+      return Promise.resolve(null);
+    }
+
+    return loadImage(dataUrl).then(function (img) {
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      if (!w || !h) return null;
+
+      // Cap decode resolution for performance. jsQR scales well up to ~800px.
+      const scale = Math.min(1, 800 / Math.max(w, h));
+      const decodeW = Math.max(1, Math.round(w * scale));
+      const decodeH = Math.max(1, Math.round(h * scale));
+
+      const canvas  = document.createElement('canvas');
+      canvas.width  = decodeW;
+      canvas.height = decodeH;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, decodeW, decodeH);
+      ctx.drawImage(img, 0, 0, decodeW, decodeH);
+
+      const imageData = ctx.getImageData(0, 0, decodeW, decodeH);
+
+      // Try a few options to be robust to inverted (white-on-black) QRs
+      let result = jsQR(imageData.data, decodeW, decodeH, {
+        inversionAttempts: 'attemptBoth'
+      });
+
+      return (result && result.data) ? result.data : null;
+    }).catch(function (err) {
+      console.warn('QR decode failed:', err);
+      return null;
+    });
+  }
+
+  // ============================================================
+  // RENDER MEMORABLE COLOR SWATCHES
+  // ============================================================
+  function renderMemorableColors() {
+    const container = document.getElementById('qr-colors');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    MEMORABLE_COLORS.forEach(function (c) {
+      const box = document.createElement('div');
+      box.className       = 'color-box';
+      box.dataset.color   = c.label.toLowerCase();
+      box.dataset.hex     = c.hex;
+      box.dataset.label   = c.label;
+      box.title           = c.label;
+      box.style.background = c.hex;
+      box.textContent     = c.label;
+      container.appendChild(box);
+    });
+
+    dom.colorBoxes = document.querySelectorAll('.color-box');
+    dom.colorBoxes.forEach(function (box) {
+      box.addEventListener('click', handleColorClick);
+    });
+  }
+
+  // ============================================================
+  // VARIANT RESOLVER (size-only)
+  // ============================================================
+  function resolveVariantId() {
+    if (!Array.isArray(PRODUCT_VARIANTS) || PRODUCT_VARIANTS.length === 0) {
+      return VARIANT_ID;
+    }
+
+    const wantSize = (state.selectedQRSize || '').toString().toLowerCase().trim();
+    if (!wantSize) return null;
+
+    const match = PRODUCT_VARIANTS.find(function (v) {
+      const opts = (v.options || []).map(function (o) {
+        return (o || '').toString().toLowerCase().trim();
+      });
+      return opts.indexOf(wantSize) !== -1 && v.available !== false;
+    });
+
+    if (match) {
+      console.log('Resolved variant:', match.id, 'options:', match.options);
+      return match.id;
+    }
+
+    console.warn('No available variant for size=', wantSize);
+    return null;
+  }
+
+  // ============================================================
+  // ADD-TO-CART BUTTON STATE
+  // ============================================================
+  function updatePlaceOrderState() {
+    if (!dom.placeOrderBtn) return;
+
+    const hasSize = !!state.selectedQRSize;
+
+    if (hasSize) {
+      dom.placeOrderBtn.disabled = false;
+      dom.placeOrderBtn.innerText = CTA_READY_TEXT;
+    } else {
+      dom.placeOrderBtn.disabled = true;
+      dom.placeOrderBtn.innerText = CTA_NEED_SIZE;
+    }
+  }
+
+  // ============================================================
+  // SIZE AVAILABILITY
+  // ============================================================
+  function updateSizeAvailability() {
+    if (!Array.isArray(PRODUCT_VARIANTS) || PRODUCT_VARIANTS.length === 0) return;
+
+    let activeSizeStillAvailable = true;
+
+    dom.sizeButtons.forEach(function (btn) {
+      const size = (btn.dataset.size || '').toString().toLowerCase().trim();
+
+      const variant = PRODUCT_VARIANTS.find(function (v) {
+        const opts = (v.options || []).map(function (o) {
+          return (o || '').toString().toLowerCase().trim();
+        });
+        return opts.indexOf(size) !== -1;
+      });
+
+      const isAvailable = variant && variant.available !== false;
+
+      if (isAvailable) {
+        btn.disabled = false;
+        btn.classList.remove('sold-out');
+      } else {
+        btn.disabled = true;
+        btn.classList.add('sold-out');
+
+        if (state.selectedQRSize &&
+            state.selectedQRSize.toString().toLowerCase().trim() === size) {
+          activeSizeStillAvailable = false;
+        }
+      }
+    });
+
+    if (!activeSizeStillAvailable) {
+      state.selectedQRSize = '';
+      dom.sizeButtons.forEach(function (b) {
+        b.style.background = '#fff';
+        b.style.color = '#000';
+      });
+      const firstAvailable = Array.from(dom.sizeButtons).find(function (b) {
+        return !b.disabled;
+      });
+      if (firstAvailable) firstAvailable.click();
+      updatePlaceOrderState();
+    }
+  }
+
+  // ============================================================
+  // CANVAS INIT
+  // ============================================================
+  function initCanvas() {
+    // Restore previous saved QR link (from localStorage as before)
+    const savedQR = localStorage.getItem('qr_link');
+    if (savedQR) {
+      state.currentQRLink = savedQR;
+      if (dom.qrLinkDisplay) dom.qrLinkDisplay.textContent = savedQR;
+      if (dom.qrLinkInput) dom.qrLinkInput.value = savedQR;
+    }
+
+    // Restore previously uploaded QR from sessionStorage
+    try {
+      const uploadedRaw = sessionStorage.getItem(UPLOAD_STORAGE_KEY);
+      if (uploadedRaw) {
+        const uploaded = JSON.parse(uploadedRaw);
+        if (uploaded && uploaded.dataUrl) {
+          state.uploadedQRDataUrl   = uploaded.dataUrl;
+          state.uploadedQRFilename  = uploaded.filename || '';
+          state.uploadedQRDecodedUrl = uploaded.decodedUrl || '';
+          state.qrSource            = 'uploaded';
+
+          // Surface the decoded URL (if any) in the details "Link" row;
+          // otherwise fall back to the filename so the user sees something.
+          const linkText = state.uploadedQRDecodedUrl || state.uploadedQRFilename || 'Uploaded QR';
+          if (dom.qrLinkDisplay)   dom.qrLinkDisplay.textContent = linkText;
+          if (dom.qrSourceDisplay) dom.qrSourceDisplay.textContent = 'Uploaded';
+          updateUploadTriggerLabel();
+        }
+      }
+    } catch (e) {
+      console.warn('Could not restore uploaded QR from sessionStorage:', e);
+    }
+
+    if (state.isInitialized) return;
+
+    state.canvas = new fabric.Canvas('mockup-canvas');
+    state.canvas.selection = false;
+    state.canvas.preserveObjectStacking = true;
+    state.canvas.skipTargetFind = true;
+    state.canvas.renderOnAddRemove = true;
+
+    loadGarmentImages();
+
+    state.isInitialized = true;
+  }
+
+  function applyDefaults() {
+    const blackBtn = document.querySelector('.qr-contrast button[data-contrast="black"]');
+    if (blackBtn) blackBtn.click();
+
+    const firstColor = document.querySelector('.color-box');
+    if (firstColor) firstColor.click();
+
+    updateSizeAvailability();
+    const firstAvailableSize = document.querySelector('.size-btn:not(:disabled)');
+    if (firstAvailableSize) firstAvailableSize.click();
+  }
+
+  function loadGarmentImages() {
+    if (FRONT_IMAGE_URL && FRONT_IMAGE_URL !== 'https:') {
+      fabric.Image.fromURL(FRONT_IMAGE_URL, function (img) {
+        img.selectable = false;
+        img.evented = false;
+        img.set({
+          scaleX: state.canvas.width / img.width,
+          scaleY: state.canvas.height / img.height
+        });
+        state.productFront = img;
+        state.canvas.add(img);
+        state.canvas.sendToBack(img);
+      });
+    }
+
+    if (BACK_IMAGE_URL && BACK_IMAGE_URL !== 'https:') {
+      fabric.Image.fromURL(BACK_IMAGE_URL, function (img) {
+        img.selectable = false;
+        img.evented = false;
+        img.set({
+          scaleX: state.canvas.width / img.width,
+          scaleY: state.canvas.height / img.height
+        });
+        state.productBack = img;
+        img.visible = false;
+        state.canvas.add(img);
+        state.canvas.sendToBack(img);
+      });
+    }
+  }
+
+  // ============================================================
+  // VIEW SWITCHING
+  // ============================================================
+  function showSide(side) {
+    state.currentSide = side;
+    if (state.productFront) state.productFront.visible = (side === 'front');
+    if (state.productBack)  state.productBack.visible  = (side === 'back');
+
+    state.canvas.getObjects().forEach(function (obj) {
+      if (obj.isQR) obj.visible = (obj.side === side);
+    });
+
+    state.canvas.renderAll();
+
+    if (dom.viewTabs && dom.viewTabs.length === 2) {
+      dom.viewTabs[0].classList.toggle('active', side === 'front');
+      dom.viewTabs[1].classList.toggle('active', side === 'back');
+    }
+  }
+
+  // ============================================================
+  // QR IMAGE RESOLVER
+  //
+  // Returns the QR image URL/dataURL that should be rendered on the
+  // crest. Uploaded path uses the (already cropped) data URL directly.
+  // Generated path produces a fresh QR for the current URL + contrast.
+  // ============================================================
+  function resolveQRImage(callback) {
+    if (state.qrSource === 'uploaded' && state.uploadedQRDataUrl) {
+      callback(null, state.uploadedQRDataUrl);
+      return;
+    }
+
+    const qrDark  = (state.selectedContrast === 'white') ? '#FFFFFF' : '#000000';
+    const qrLight = (state.selectedContrast === 'white') ? '#000000' : '#FFFFFF';
+
+    QRCode.toDataURL(state.currentQRLink, {
+      width: 400,
+      margin: 0,
+      errorCorrectionLevel: 'H',
+      color: { dark: qrDark, light: qrLight }
+    }, callback);
+  }
+
+  // ============================================================
+  // QR CREST RENDERING
+  // ============================================================
+  function addQR(style) {
+    const hasInput = (state.qrSource === 'uploaded' && state.uploadedQRDataUrl) ||
+                     (state.qrSource === 'generated' && state.currentQRLink && state.currentQRLink.trim());
+
+    if (!hasInput) {
+      alert('Please add or upload a QR first before choosing a crest position.');
+      return;
+    }
+
+    state.selectedQRStyle = style;
+    const pos = QR_POSITIONS[style];
+
+    if (dom.placementBadge && PLACEMENT_LABELS[style]) {
+      dom.placementBadge.textContent = PLACEMENT_LABELS[style];
+    }
+
+    if (dom.printSideSelect) {
+      dom.printSideSelect.value = pos.side;
+      showSide(pos.side);
+    }
+
+    // Clear any existing crest on the canvas
+    state.canvas.getObjects().forEach(function (obj) {
+      if (obj.isQR) state.canvas.remove(obj);
+    });
+
+    resolveQRImage(function (err, url) {
+      if (err) { console.error(err); return; }
+
+      fabric.Image.fromURL(url, function (qrImg) {
+        const qrW       = pos.width;
+        const pad       = qrW * CREST.cardPadding;
+        const cardSide  = qrW + pad * 2;
+        const tabDx     = qrW * CREST.tabOffsetX;
+        const tabDy     = qrW * CREST.tabOffsetY;
+
+        const tabW = cardSide;
+        const tabH = cardSide;
+
+        const centerSize = qrW * CREST.centerSize;
+        const qrCenterX  = -tabDx + pad + qrW / 2;
+        const qrCenterY  = -tabDy + pad + qrW / 2;
+
+        const cardX = -tabDx;
+        const cardY = -tabDy;
+
+        const qrLight = (state.selectedContrast === 'white') ? '#000000' : '#FFFFFF';
+
+        const children = [];
+
+        children.push(new fabric.Rect({
+          width: tabW, height: tabH,
+          fill: state.selectedQRBgColor,
+          left: 0, top: 0,
+          originX: 'left', originY: 'top'
+        }));
+
+        children.push(new fabric.Text('UMBRLUX', {
+          left: CREST.brandPadX * qrW,
+          top:  tabH - CREST.brandPadY * qrW,
+          fontSize: qrW * CREST.brandFontSize,
+          fontFamily: 'Helvetica, Arial, sans-serif',
+          fontWeight: '700',
+          fill: CREST.brandText,
+          charSpacing: 80,
+          originX: 'left', originY: 'bottom'
+        }));
+
+        children.push(new fabric.Rect({
+          width: cardSide, height: cardSide,
+          fill: qrLight,
+          left: cardX, top: cardY,
+          originX: 'left', originY: 'top'
+        }));
+
+        // The uploaded QR image is guaranteed square (cropped on save),
+        // so scaleToWidth produces a square render. The generated path
+        // is also always square. No aspect-ratio surprises.
+        qrImg.set({
+          left: cardX + pad,
+          top:  cardY + pad,
+          originX: 'left', originY: 'top'
+        });
+        qrImg.scaleToWidth(qrW);
+        children.push(qrImg);
+
+        const badgeBg   = (state.selectedContrast === 'white') ? '#FFFFFF' : CREST.centerBg;
+        const badgeText = (state.selectedContrast === 'white') ? '#1f1f1f' : CREST.centerText;
+
+        children.push(new fabric.Rect({
+          width: centerSize, height: centerSize,
+          fill: badgeBg,
+          left: qrCenterX, top: qrCenterY,
+          originX: 'center', originY: 'center'
+        }));
+
+        children.push(new fabric.Text('CARPE\nDIEM', {
+          left: qrCenterX, top: qrCenterY,
+          textAlign: 'center',
+          fontSize: qrW * CREST.centerTextSize,
+          fontFamily: 'Georgia, "Times New Roman", serif',
+          fontStyle: 'italic',
+          fill: badgeText,
+          charSpacing: 80,
+          originX: 'center', originY: 'center'
+        }));
+
+        const qrGroup = new fabric.Group(children, {
+          left: pos.left,
+          top:  pos.top,
+          originX: 'left',
+          originY: 'top',
+          selectable: false,
+          evented: false,
+          hasControls: false,
+          hasBorders: false,
+          hoverCursor: 'default',
+          lockMovementX: true,
+          lockMovementY: true,
+          lockScalingX: true,
+          lockScalingY: true,
+          lockRotation: true,
+          isQR: true,
+          style: style,
+          side: pos.side
+        });
+
+        state.canvas.add(qrGroup);
+        state.canvas.renderAll();
+        updatePositionInputs(qrGroup);
+      });
+    });
+  }
+
+  function updatePositionInputs(qr) {
+    if (!qr) return;
+    if (dom.qrPosX) dom.qrPosX.value = Math.round(qr.left);
+    if (dom.qrPosY) dom.qrPosY.value = Math.round(qr.top);
+  }
+
+  function recolorActiveQR() {
+    let activeQR = null;
+    state.canvas.getObjects().forEach(function (obj) {
+      if (obj.isQR) activeQR = obj;
+    });
+
+    if (activeQR && activeQR.style) {
+      addQR(activeQR.style);
+    }
+  }
+
+  // ============================================================
+  // FORM CONTROLS
+  // ============================================================
+  function saveQRLink() {
+    const inputValue = dom.qrLinkInput.value.trim();
+    if (!inputValue) { alert('Please enter a valid QR link.'); return; }
+    state.currentQRLink = inputValue;
+    state.qrSource = 'generated';
+
+    // Clear any uploaded QR so the generated one takes precedence
+    state.uploadedQRDataUrl   = '';
+    state.uploadedQRFilename  = '';
+    state.uploadedQRDecodedUrl = '';
+    try { sessionStorage.removeItem(UPLOAD_STORAGE_KEY); } catch (e) {}
+
+    localStorage.setItem('qr_link', state.currentQRLink);
+    if (dom.qrLinkDisplay)    dom.qrLinkDisplay.textContent = state.currentQRLink;
+    if (dom.qrSourceDisplay)  dom.qrSourceDisplay.textContent = 'Generated';
+    updateUploadTriggerLabel();
+    recolorActiveQR();
+    alert('QR Link Saved Successfully!');
+  }
+
+  function handleSizeClick(e) {
+    const btn = e.currentTarget;
+
+    if (btn.disabled || btn.classList.contains('sold-out')) return;
+
+    state.selectedQRSize = btn.dataset.size;
+    dom.sizeButtons.forEach(function (b) { b.style.background = '#fff'; b.style.color = '#000'; });
+    btn.style.background = '#000';
+    btn.style.color = '#fff';
+
+    updatePlaceOrderState();
+  }
+
+  function handleColorClick(e) {
+    const box = e.currentTarget;
+    const label = box.dataset.label || box.title || box.dataset.color;
+    const hex   = box.dataset.hex || box.dataset.color;
+
+    state.selectedQRBgColor    = hex;
+    state.selectedQRColorLabel = label;
+
+    if (dom.qrCrestColorLabel)  dom.qrCrestColorLabel.textContent = label;
+    if (dom.qrHexDisplay)       dom.qrHexDisplay.textContent = (hex || '').toString().toUpperCase();
+    if (dom.qrCardColorDisplay) dom.qrCardColorDisplay.textContent = label;
+    if (dom.colorHero)          dom.colorHero.style.background = hex;
+
+    dom.colorBoxes.forEach(function (b) { b.classList.remove('active'); });
+    box.classList.add('active');
+
+    recolorActiveQR();
+  }
+
+  function handleContrastClick(e) {
+    const btn = e.currentTarget;
+    const value = btn.dataset.contrast;
+
+    state.selectedContrast = value;
+    state.selectedQRColor = (value === 'white') ? '#FFFFFF' : '#000000';
+
+    dom.contrastButtons.forEach(function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+
+    if (dom.qrColorDisplay) dom.qrColorDisplay.textContent = value.toUpperCase();
+    recolorActiveQR();
+  }
+
+  function handleStyleClick(e) {
+    const btn = e.currentTarget;
+    const style = btn.dataset.qrStyle;
+
+    dom.qrStyleButtons.forEach(function (button) {
+      button.classList.remove('active');
+    });
+
+    btn.classList.add('active');
+    if (dom.qrStyleDisplay) dom.qrStyleDisplay.textContent = style;
+    addQR(style);
+  }
+
+  function handlePrintSideChange(e) {
+    showSide(e.target.value);
+  }
+
+  function handleViewTabClick(index) {
+    showSide(index === 0 ? 'front' : 'back');
+  }
+
+  // ============================================================
+  // QR SOURCE TAB SWITCHING (Generate / Upload)
+  // ============================================================
+  function handleSourceTabClick(e) {
+    const tab = e.currentTarget;
+    const which = tab.dataset.sourceTab;
+
+    dom.sourceTabs.forEach(function (t) { t.classList.toggle('active', t === tab); });
+    dom.sourcePanels.forEach(function (p) {
+      p.classList.toggle('active', p.dataset.sourcePanel === which);
+    });
+  }
+
+  // ============================================================
+  // QR UPLOAD MODAL
+  // ============================================================
+  let pendingUpload = null; // { dataUrl, filename, decodedUrl } before user clicks Save
+
+  function openUploadModal() {
+    if (!dom.uploadModal) return;
+
+    if (state.uploadedQRDataUrl) {
+      pendingUpload = {
+        dataUrl:    state.uploadedQRDataUrl,
+        filename:   state.uploadedQRFilename,
+        decodedUrl: state.uploadedQRDecodedUrl
+      };
+      showPreview(pendingUpload);
+    } else {
+      pendingUpload = null;
+      hidePreview();
+    }
+
+    hideUploadError();
+    hideProcessing();
+    dom.uploadModal.classList.add('is-open');
+    dom.uploadModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeUploadModal() {
+    if (!dom.uploadModal) return;
+    dom.uploadModal.classList.remove('is-open');
+    dom.uploadModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    pendingUpload = null;
+    hideUploadError();
+    hideProcessing();
+  }
+
+  function showUploadError(msg) {
+    if (!dom.uploadError) return;
+    dom.uploadError.textContent = msg;
+    dom.uploadError.classList.add('is-shown');
+  }
+  function hideUploadError() {
+    if (!dom.uploadError) return;
+    dom.uploadError.classList.remove('is-shown');
+    dom.uploadError.textContent = '';
+  }
+
+  function showProcessing() {
+    if (dom.uploadProcessing) dom.uploadProcessing.classList.add('is-shown');
+  }
+  function hideProcessing() {
+    if (dom.uploadProcessing) dom.uploadProcessing.classList.remove('is-shown');
+  }
+
+  function showPreview(payload) {
+    if (!dom.uploadPreview || !dom.uploadPreviewImg) return;
+
+    dom.uploadPreviewImg.src = payload.dataUrl;
+    dom.uploadFilename.textContent = payload.filename || '';
+
+    // Decoded URL panel — green if decoded, amber warning if not
+    if (dom.uploadDecoded) {
+      if (payload.decodedUrl) {
+        dom.uploadDecoded.innerHTML =
+          '<strong>QR Decoded</strong>' +
+          escapeHtml(payload.decodedUrl);
+        dom.uploadDecoded.classList.remove('is-warn');
+        dom.uploadDecoded.classList.add('is-shown');
+      } else {
+        dom.uploadDecoded.innerHTML =
+          '<strong>Heads up</strong>' +
+          'We could not detect a scannable QR pattern in this image. ' +
+          'The image will still be used on your crest, but please double-check it scans.';
+        dom.uploadDecoded.classList.add('is-warn');
+        dom.uploadDecoded.classList.add('is-shown');
+      }
+    }
+
+    dom.uploadPreview.classList.add('is-shown');
+    if (dom.uploadSave) dom.uploadSave.disabled = false;
+  }
+
+  function hidePreview() {
+    if (!dom.uploadPreview) return;
+    dom.uploadPreview.classList.remove('is-shown');
+    if (dom.uploadPreviewImg) dom.uploadPreviewImg.src = '';
+    if (dom.uploadFilename) dom.uploadFilename.textContent = '';
+    if (dom.uploadDecoded) {
+      dom.uploadDecoded.classList.remove('is-shown', 'is-warn');
+      dom.uploadDecoded.innerHTML = '';
+    }
+    if (dom.uploadSave) dom.uploadSave.disabled = true;
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function processUploadedFile(file) {
+    hideUploadError();
+    hidePreview();
+
+    if (!file) return;
+
+    if (UPLOAD_MIME_TYPES.indexOf(file.type) === -1) {
+      showUploadError('Unsupported file type. Please upload a PNG, JPG, or SVG.');
+      return;
+    }
+    if (file.size > UPLOAD_MAX_BYTES) {
+      showUploadError('File is too large. Max size is 5 MB.');
+      return;
+    }
+
+    showProcessing();
+
+    const reader = new FileReader();
+    reader.onload = function (ev) {
+      const originalDataUrl = ev.target.result;
+
+      // Pipeline:
+      //   1. Crop the source to a square (cap at 800px)
+      //   2. Try to decode the QR content from the cropped image
+      //   3. Show preview with both
+      cropImageToSquare(originalDataUrl)
+        .then(function (squareDataUrl) {
+          return decodeQRFromDataUrl(squareDataUrl).then(function (decodedUrl) {
+            pendingUpload = {
+              dataUrl:    squareDataUrl,
+              filename:   file.name,
+              decodedUrl: decodedUrl || ''
+            };
+            hideProcessing();
+            showPreview(pendingUpload);
+          });
+        })
+        .catch(function (err) {
+          console.error(err);
+          hideProcessing();
+          showUploadError('Could not process the image. Please try a different file.');
+        });
+    };
+    reader.onerror = function () {
+      hideProcessing();
+      showUploadError('Could not read the file. Please try a different image.');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function saveUploadedQR() {
+    if (!pendingUpload || !pendingUpload.dataUrl) return;
+
+    state.uploadedQRDataUrl    = pendingUpload.dataUrl;
+    state.uploadedQRFilename   = pendingUpload.filename || 'Uploaded QR';
+    state.uploadedQRDecodedUrl = pendingUpload.decodedUrl || '';
+    state.qrSource             = 'uploaded';
+
+    // Persist all three (image + filename + decoded URL) so the cart
+    // submission and any subsequent page load can use them.
+    try {
+      sessionStorage.setItem(UPLOAD_STORAGE_KEY, JSON.stringify({
+        dataUrl:    state.uploadedQRDataUrl,
+        filename:   state.uploadedQRFilename,
+        decodedUrl: state.uploadedQRDecodedUrl,
+        decodedAt:  Date.now()
+      }));
+    } catch (e) {
+      console.warn('Could not save uploaded QR to sessionStorage:', e);
+      showUploadError('Image saved, but could not store for this session.');
+    }
+
+    // Surface the decoded URL in the details "Link" row when we have it,
+    // otherwise fall back to the filename so the user always sees something.
+    const linkText = state.uploadedQRDecodedUrl || state.uploadedQRFilename;
+    if (dom.qrLinkDisplay)    dom.qrLinkDisplay.textContent = linkText;
+    if (dom.qrSourceDisplay)  dom.qrSourceDisplay.textContent = 'Uploaded';
+    updateUploadTriggerLabel();
+
+    // Re-render the active crest with the new QR image
+    recolorActiveQR();
+
+    closeUploadModal();
+  }
+
+  function updateUploadTriggerLabel() {
+    if (!dom.uploadTrigger) return;
+    if (state.qrSource === 'uploaded' && state.uploadedQRFilename) {
+      dom.uploadTrigger.textContent = '✓ ' + state.uploadedQRFilename + ' (click to change)';
+      dom.uploadTrigger.classList.add('has-image');
+    } else {
+      dom.uploadTrigger.textContent = 'Choose QR image to upload';
+      dom.uploadTrigger.classList.remove('has-image');
+    }
+  }
+
+  function bindUploadModal() {
+    if (!dom.uploadTrigger) return;
+
+    dom.uploadTrigger.addEventListener('click', openUploadModal);
+
+    if (dom.uploadClose)  dom.uploadClose.addEventListener('click', closeUploadModal);
+    if (dom.uploadCancel) dom.uploadCancel.addEventListener('click', closeUploadModal);
+
+    // Backdrop click closes
+    if (dom.uploadModal) {
+      const backdrop = dom.uploadModal.querySelector('.modal-backdrop');
+      if (backdrop) backdrop.addEventListener('click', closeUploadModal);
+    }
+
+    // ESC closes
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && dom.uploadModal && dom.uploadModal.classList.contains('is-open')) {
+        closeUploadModal();
+      }
+    });
+
+    // File picker
+    if (dom.uploadInput) {
+      dom.uploadInput.addEventListener('change', function (e) {
+        const file = e.target.files && e.target.files[0];
+        if (file) processUploadedFile(file);
+      });
+    }
+
+    // Drag + drop on the dropzone label
+    if (dom.uploadDropzone) {
+      ['dragenter', 'dragover'].forEach(function (evt) {
+        dom.uploadDropzone.addEventListener(evt, function (e) {
+          e.preventDefault();
+          dom.uploadDropzone.classList.add('is-dragging');
+        });
+      });
+      ['dragleave', 'drop'].forEach(function (evt) {
+        dom.uploadDropzone.addEventListener(evt, function (e) {
+          e.preventDefault();
+          dom.uploadDropzone.classList.remove('is-dragging');
+        });
+      });
+      dom.uploadDropzone.addEventListener('drop', function (e) {
+        const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) processUploadedFile(file);
+      });
+    }
+
+    // Save button confirms and persists
+    if (dom.uploadSave) {
+      dom.uploadSave.addEventListener('click', saveUploadedQR);
+    }
+  }
+
+  // ============================================================
+  // ORDER SUBMISSION
+  // ============================================================
+  function placeOrder() {
+    const hasInput = (state.qrSource === 'uploaded' && state.uploadedQRDataUrl) ||
+                     (state.qrSource === 'generated' && state.currentQRLink);
+    if (!hasInput) { alert('Please add a QR link or upload a QR image first.'); return; }
+
+    const variantId = resolveVariantId();
+    if (!variantId) {
+      alert('Sorry, this size is not available. Please pick a different size.');
+      return;
+    }
+
+    const originalText = dom.placeOrderBtn.innerText;
+    dom.placeOrderBtn.innerText = 'Processing...';
+    dom.placeOrderBtn.disabled = true;
+
+    let selectedStyle = state.selectedQRStyle;
+    if (!selectedStyle) {
+      state.canvas.getObjects().forEach(function (obj) {
+        if (obj.isQR && obj.style) selectedStyle = obj.style;
+      });
+    }
+
+    const designId = 'design_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+    const contrastValue  = (state.selectedContrast || 'black').toUpperCase();
+    const cardColorValue = state.selectedQRColorLabel || '—';
+    const styleValue     = selectedStyle             || '—';
+    const printSideValue = dom.printSideSelect ? dom.printSideSelect.value : 'front';
+    const sourceValue    = state.qrSource === 'uploaded' ? 'Uploaded' : 'Generated';
+
+    // For uploaded QRs we send the decoded URL when available so the
+    // production team can verify the destination. If decode failed we
+    // fall back to the filename so the property is never blank.
+    let linkOrFile;
+    if (state.qrSource === 'uploaded') {
+      linkOrFile = state.uploadedQRDecodedUrl
+        ? state.uploadedQRDecodedUrl
+        : ('Uploaded: ' + (state.uploadedQRFilename || 'qr-image'));
+    } else {
+      linkOrFile = state.currentQRLink;
+    }
+
+    const properties = {
+      'QR Link':            linkOrFile,
+      'QR Source':          sourceValue,
+      'QR Colour':          contrastValue,
+      'Umbrlux Colour':     cardColorValue,
+      'QR Position':        styleValue,
+      'Print Side':         printSideValue,
+      '_design_id':         designId,
+      '_has_custom_design': 'true'
+    };
+
+    // Extra property for fulfillment when uploaded — keeps filename
+    // visible alongside the decoded URL.
+    if (state.qrSource === 'uploaded' && state.uploadedQRFilename) {
+      properties['QR Filename'] = state.uploadedQRFilename;
+    }
+
+    fetch('/cart/add.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: [{
+          id: variantId,
+          quantity: 1,
+          properties: properties
+        }]
+      })
+    })
+    .then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok) {
+          throw new Error(data.description || data.message || 'Cart error ' + res.status);
+        }
+        return data;
+      });
+    })
+    .then(function (data) {
+      console.log('Added to cart:', data);
+      window.location.href = '/cart?logged_in=true';
+    })
+    .catch(function (err) {
+      console.error(err);
+      alert('Error placing order: ' + err.message);
+      dom.placeOrderBtn.innerText = originalText;
+      dom.placeOrderBtn.disabled = false;
+    });
+  }
+
+  // ============================================================
+  // EVENT BINDING
+  // ============================================================
+  function bindEvents() {
+    if (dom.saveQrBtn)       dom.saveQrBtn.addEventListener('click', saveQRLink);
+    if (dom.placeOrderBtn)   dom.placeOrderBtn.addEventListener('click', placeOrder);
+    if (dom.printSideSelect) dom.printSideSelect.addEventListener('change', handlePrintSideChange);
+
+    dom.sizeButtons.forEach(function (btn) { btn.addEventListener('click', handleSizeClick); });
+    dom.qrStyleButtons.forEach(function (btn) { btn.addEventListener('click', handleStyleClick); });
+    dom.contrastButtons.forEach(function (btn) { btn.addEventListener('click', handleContrastClick); });
+    dom.viewTabs.forEach(function (tab, index) {
+      tab.addEventListener('click', function () { handleViewTabClick(index); });
+    });
+    dom.sourceTabs.forEach(function (tab) { tab.addEventListener('click', handleSourceTabClick); });
+  }
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  function init() {
+    cacheDom();
+    bindEvents();
+    bindUploadModal();
+    initCanvas();
+    renderMemorableColors();
+    applyDefaults();
+    updatePlaceOrderState();
+
+    // If a QR was previously uploaded in this session, switch tab to upload
+    if (state.qrSource === 'uploaded') {
+      const uploadTab = document.querySelector('.qr-source-tab[data-source-tab="upload"]');
+      if (uploadTab) uploadTab.click();
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
